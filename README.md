@@ -6,7 +6,7 @@
 I also saved my client 100 euros per month in costs by opting for Google's Dataform over dbt (for data transformation & logic). 
 
 # Why this repo
-The solution delivered works and the client is gaining value from it. But as I am a career Merchandiser, this is a retrospective to see what steps were missed and what could be improved. 
+The solution delivered works and the client is gaining value from it. But as I am a career Merchandiser, this is a retrospective to see what steps were missed and what could be improved from an Analytics Engineering perspective. 
 
 # Problem
 The operational reality - Robena, the commercial director, was spending days pulling together reports to gain insights. The process took so long, she had resulted to only doing so once per month, meaning she was always looking at severely lagging data. Robena is an excellent commercial director. A slick operator, but she was time-poor. 
