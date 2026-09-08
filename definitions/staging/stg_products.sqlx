@@ -1,4 +1,4 @@
-## Explainer - this is solely used to grab the live price from the website
+-- Explainer - this is solely used to grab the live price from the website
 
 WITH raw_products AS (
    -- This looks at your sources.yml file to find the raw BigQuery table
