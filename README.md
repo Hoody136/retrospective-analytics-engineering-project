@@ -39,7 +39,10 @@ Robena, the commercial director, exports CSVs from Shopify and uploads them to B
 - **Transformation**: Dataform models that clean and standardise the sources, allocate transaction-level discounts and order costs down to order lines, enrich sales with range-plan attributes, and compute retail KPIs on a single declared grain.
 - **Activation**: Looker Studio pages that drill from business summary → brand/category → SKU.
 
+## What proof do I have it worked?
+Weekly trade reporting went from days of manual assembly to a refresh measured in minutes. Evidence status: client-reported / directional. Client feedback: "Out of all freelancers we've worked with, you've added the most value."
 
-
+# High-Level Architecture
+<img width="896" height="815" alt="ink" src="https://github.com/user-attachments/assets/eea7a2a2-6f54-44ba-a6cc-fdb3b22ae9a5" />
 
 
