@@ -97,3 +97,23 @@ Raw tables land exactly as exported — the "photocopier, not editor" rule. Noth
 # Transformation & Semantic Layer
 
 ## Grain Model
+One row per order line item. Profiling sample transactions (a multi-line order, a partial return, a discount-code order) revealed that Shopify records discounts at transaction level — so I built allocation logic to apportion discounts, shipping, tax and refunds down to lines pro-rata by each line's share of the order.
+
+## Code organization
+
+- | **Layer**             | **Model**                                | **What it does**                                                               
+- | Staging          | `stg_order`                        | Cleans and unions Shopify + sample sale line items; one row per order line 
+- | Staging          | `stg_products`                  | Variant SKU → live selling price                                           
+- | Staging          | `stg_inventory`                  | Current stock snapshot per SKU                                             
+- | Staging          | `stg_raw_range_sheet`     | Brand, season, category, cost, RRP per SKU                                 
+- | Staging          | `stg_dim_date`                  | ISO week, 4-4-5 month, season calendar                                     
+- | Intermediate  | `int_orders_filled`               | Allocates transaction-level discounts, shipping, tax, refunds to lines     
+- | Intermediate  | `int_sku_sales_rolling`      | PW / PWLY / 4-week / YTD rolling sales per SKU                             
+- | Facts             | `fct_order_lines`                 | KPI fact table: net sales, COGS, margin, markdown flags                    
+- | Facts             | `fct_inventory`                    | Stock fact per SKU                                                         
+- | Dimensions   | `dim_products`                  | Range plan + live price, one row per SKU                                   
+- | Marts             | `mart_sku_performance`    | Sell-through, weeks of cover, margin by SKU                                
+- | Marts             | `mart_inventory_enriched` | 28-day velocity and stock-risk view                              
+
+
+
