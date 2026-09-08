@@ -12,7 +12,7 @@ The solution delivered works and the client is gaining value from it. But as I a
 The operational reality - Robena, the commercial director, was spending days pulling together reports to gain insights. The process took so long, she had resulted to only doing so once per month, meaning she was always looking at severely lagging data. Robena is an excellent commercial director. A slick operator, but she was time-poor. 
 
 ## Problems in the data
-Shopify has a few weird quirks. After looking at the source data, drilling down, isolating cases, I noticed a few things: 
+If there is one thing I love, it's getting my grubby hands on a bit of raw data. Shopify has a few weird quirks. After looking at the source data, drilling down, isolating cases, I noticed a few things: 
 
 ### Weird quirk 1 - transaction discount vs line item discount
 when a discount code is used, discount is only applied at the transaction, and not aportioned to the line leven or lineitem. That's a big problem. 
