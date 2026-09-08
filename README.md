@@ -28,6 +28,8 @@ Decisions made on gut feel rather than being data-driven.
 
 # Solution
 
+## Goal was to work with the client in an agile way and deliver something useful as quickly as possible. This project took about 6 weeks, witht he majority of time spent having free flowing conversations about the business and key metrics. 
+
 ## What Mondays look like now
 Robena, the commercial director, exports CSVs from Shopify and uploads them to Big Query. This takes about 10 minutes each week. Transformation & business logic is applied via dbt/Dataform and a Looker dashboard instantly updates, with multiple pages for increasing levels of granularity in performance. Answers: what sold last week and at what margin; which SKUs, brands and categories are driving profitable growth; which SKUs are selling at poor margins or are markdown-exposed; and what needs action this week. A template view also lets the team share sell-through performance with brand partners.
 
@@ -92,5 +94,6 @@ Serverless, cost-effective at this scale, and native to the client's Google ecos
 ## Raw layer organisation and additional table builds
 Raw tables land exactly as exported — the "photocopier, not editor" rule. Nothing is cleaned or renamed in the raw layer, so any downstream bug can be reconciled against an untouched copy of what the source actually said. dim_date: a purpose-built calendar dimension mapping every date to ISO year, ISO week, 4-4-5 retail month, and the client's commercial season. This is what makes like-for-like weekly and seasonal comparison possible at all.
 
+# Transformation & Semantic Layer
 
-
+## Grain Model
