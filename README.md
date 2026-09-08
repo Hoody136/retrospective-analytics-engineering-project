@@ -158,7 +158,7 @@ The looker dashboard was a series of sheets that contained the same KPIs from le
 ### ✂️ Discounting & margin (are we keeping the money?)
 
 - **Lifetime Discount % / PW Discount %** — depth of discounting, lifetime and last week. *Why:* the brand-equity guardrail — the PW column catches creeping promo dependence before it becomes the strategy.
-- **Lifetime Contribution Margin % / PW Contribution Margin %** — profit kept per pound of net sales, after costs. *Why:* the "is this worth selling?" KPI — several rows show *negative* PW contribution (SS25 at −18.2%), which is exactly the "selling but losing money" flag the whole project was built to surface.
+- **Lifetime Contribution Margin % / PW Contribution Margin %** — profit kept per pound of net sales, after costs. *Why:* the "is this worth selling?" KPI.
 - **Lifetime Return Rate % / PW Return Rate** — share of sales coming back. *Why:* quality/sizing surveillance — a rising PW return rate on a strong seller is the margin-eraser early warning.
 
 ### 🔍 The dimensions (the drill path)
