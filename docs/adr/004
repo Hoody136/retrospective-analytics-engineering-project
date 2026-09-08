@@ -1,0 +1,38 @@
+# ADR-004: Manual CSV ingestion over Shopify API automation
+
+- **Status:** Accepted (with a documented revisit trigger — see below)
+- **Date:** 2025 (project build phase)
+- **Deciders:** Joseph Hood (Analytics Engineer)
+
+## Context
+
+Shopify data can be ingested two ways: automated extraction via the Shopify API, or manual weekly CSV exports uploaded by the client team. The API path is the technically "correct" default for most pipelines. This client's team, however, is non-technical: they already work with Shopify CSV exports daily, they can recognise the data on sight, and they have no ability to inspect or debug an API pipeline if it silently misbehaves (batching errors, pagination gaps, expired credentials).
+
+A pipeline the client cannot see or trust would undermine the project's core goal: one set of numbers the business believes.
+
+## Decision
+
+Use manual weekly CSV exports, uploaded by the client team to BigQuery raw tables, as the ingestion mechanism. Personal data columns (names, emails, addresses, phone numbers) are deleted before upload — a documented manual control.
+
+## Consequences
+
+**Positive**
+
+- Full team adoption from day one: the data stays visible and tactile, and the team can verify with their own eyes that the right file was uploaded.
+- Zero invisible failure surface — no auth tokens expiring at 6am, no silent pagination gaps discovered a month later.
+- Zero build and maintenance cost for ingestion infrastructure.
+- The weekly upload doubles as a forcing function: a human touches the data every week, which keeps data quality visible.
+
+**Negative / trade-offs**
+
+- A manual step is a forgettable step: a missed or partial upload is possible (mitigated by row-count sense-checks in the weekly routine, documented in `docs/runbook.md`).
+- The PII deletion control is manual — it works until a busy Monday when it doesn't (recorded on the known-issue register; scripting this step is the documented fix).
+- Does not scale to higher data volumes or more frequent refreshes.
+
+## Revisit trigger
+
+Automate ingestion when either is true: (a) the team's data maturity and trust in the pipeline is established, or (b) the manual upload becomes the bottleneck. Automation is the graduation, not the starting point.
+
+## Retrospective note
+
+This decision optimised for adoption over elegance — the opposite of what engineering instinct usually dictates, and the right call. A technically superior pipeline the client doesn't trust is a worse pipeline.
