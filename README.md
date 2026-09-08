@@ -28,7 +28,7 @@ Decisions made on gut feel rather than being data-driven.
 
 # Solution
 
-## Goal was to work with the client in an agile way and deliver something useful as quickly as possible. This project took about 6 weeks, witht he majority of time spent having free flowing conversations about the business and key metrics. 
+## Goal was to work with the client in an agile way and deliver something useful as quickly as possible. This project took about 6 weeks, with the majority of time spent having free flowing conversations about the business and key metrics. I would work on something, we would discuss, then I would iterate. I think this worked very well. 
 
 ## What Mondays look like now
 Robena, the commercial director, exports CSVs from Shopify and uploads them to Big Query. This takes about 10 minutes each week. Transformation & business logic is applied via dbt/Dataform and a Looker dashboard instantly updates, with multiple pages for increasing levels of granularity in performance. Answers: what sold last week and at what margin; which SKUs, brands and categories are driving profitable growth; which SKUs are selling at poor margins or are markdown-exposed; and what needs action this week. A template view also lets the team share sell-through performance with brand partners.
