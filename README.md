@@ -122,3 +122,7 @@ All KPI definitions live in docs/kpi-dictionary.md, validated against standard r
 # Quality & Trust
 Raw-to-model totals compared for gross sales and units; allocated line-level discounts verified to sum back to the original order-level amounts; SKUs missing costs surfaced (they'd silently corrupt margin); duplicate order lines from overlapping weekly exports checked; all sales KPIs gated on paid orders; all ratios use SAFE_DIVIDE so zero-stock or zero-sales SKUs return NULL instead of breaking the pipeline.
 
+# Activation & BI - Looker
+<img width="1266" height="582" alt="Screenshot 2026-09-08 at 13 13 11" src="https://github.com/user-attachments/assets/8634a56c-5c91-4108-ab95-6b829478a718" />
+
+
