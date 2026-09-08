@@ -1,0 +1,107 @@
+WITH raw_orders AS (
+   SELECT * FROM {{ ref('stg_orders') }}
+),
+
+
+----------------------------------------------------------------------------------
+-- STEP 1: TRANSACTION HEADERS & HELPER COLUMNS
+----------------------------------------------------------------------------------
+order_headers AS (
+   SELECT
+       *,
+       (COALESCE(subtotal, 0) + COALESCE(discount_amount, 0)) AS total_before_discount,
+       SAFE_DIVIDE(
+           COALESCE(discount_amount, 0),
+           (COALESCE(subtotal, 0) + COALESCE(discount_amount, 0))
+       ) AS lineitem_discount_percentage
+   FROM raw_orders
+   WHERE financial_status IS NOT NULL
+),
+
+
+----------------------------------------------------------------------------------
+-- STEP 2: GLUE HEADERS TO LINES & POPULATE MISSING DISCOUNTS
+----------------------------------------------------------------------------------
+base_lines AS (
+   SELECT
+       lines.order_number,
+       lines.created_at,
+       lines.lineitem_quantity,
+       lines.product_name,
+       lines.lineitem_price,
+       lines.lineitem_compare_at_price,
+       lines.lineitem_sku,
+       lines.lineitem_requires_shipping,
+       lines.lineitem_taxable,
+       lines.lineitem_fulfillment_status,
+       lines.vendor,
+       lines.execution_cost_gbp,
+
+
+       -- Finds the exact discount you provided in the CSV
+       CASE
+           WHEN COALESCE(headers.discount_amount, 0) > 0 AND COALESCE(lines.lineitem_discount, 0) = 0 THEN
+               (lines.lineitem_price * headers.lineitem_discount_percentage) * lines.lineitem_quantity
+           ELSE COALESCE(lines.lineitem_discount, 0)
+       END AS lineitem_discount,
+      
+       headers.* EXCEPT (
+           order_number,
+           created_at,
+           lineitem_quantity,
+           product_name,
+           lineitem_price,
+           lineitem_compare_at_price,
+           lineitem_sku,
+           lineitem_requires_shipping,
+           lineitem_taxable,
+           lineitem_fulfillment_status,
+           vendor,
+           lineitem_discount,
+           execution_cost_gbp
+       )
+   FROM raw_orders AS lines
+   LEFT JOIN order_headers AS headers
+   ON lines.order_number = headers.order_number
+),
+
+
+----------------------------------------------------------------------------------
+-- STEP 3: CORE SALES METRICS (Gross, Net, and Selling Price)
+----------------------------------------------------------------------------------
+sales_calculations AS (
+   SELECT
+       *,
+       -- Gross Sales (Original Price * Qty)
+       (lineitem_price * lineitem_quantity) AS lineitem_gross_sales_before_discount,
+
+
+       -- Net Sales: THE FIX (Gross Sales minus the explicit Lineitem Discount)
+       ((lineitem_price * lineitem_quantity) - COALESCE(lineitem_discount, 0)) AS lineitem_netsales_afterdiscount_before_returns,
+
+
+       -- Actual Selling Price Per Unit
+       SAFE_DIVIDE(((lineitem_price * lineitem_quantity) - COALESCE(lineitem_discount, 0)), lineitem_quantity) AS lineitem_selling_price
+   FROM base_lines
+),
+
+
+----------------------------------------------------------------------------------
+-- STEP 4: FIRST WAVE ALLOCATIONS (Shipping & Tax)
+----------------------------------------------------------------------------------
+cost_allocations AS (
+   SELECT
+       *,
+       (SAFE_DIVIDE(total, subtotal) - 1) * lineitem_netsales_afterdiscount_before_returns AS lineitem_shipping,
+       SAFE_DIVIDE(COALESCE(taxes, 0), subtotal) * lineitem_netsales_afterdiscount_before_returns AS lineitem_tax
+   FROM sales_calculations
+)
+
+
+----------------------------------------------------------------------------------
+-- STEP 5: FINAL WAVE ALLOCATIONS (Refunds)
+----------------------------------------------------------------------------------
+SELECT
+   *,
+   SAFE_DIVIDE(COALESCE(refunded_amount, 0), total) * (lineitem_netsales_afterdiscount_before_returns + COALESCE(lineitem_shipping, 0)) AS lineitem_refund
+FROM cost_allocations
