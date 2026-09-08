@@ -1,0 +1,34 @@
+# ADR-002: ISO weeks and 4-4-5 retail calendar in a purpose-built date dimension
+
+- **Status:** Accepted
+- **Date:** 2025 (project build phase)
+- **Deciders:** Joseph Hood (Analytics Engineer), with season logic supplied by the Commercial Director
+
+## Context
+
+Retail trading runs on weeks, not calendar months. Comparing "March vs February" is misleading in retail because months contain different numbers of weekends and paydays. The client trades on ISO weeks and thinks in 4-4-5 retail months (each quarter = one 4-week month, one 4-week month, one 5-week month), which makes periods comparable year over year.
+
+Additionally, the client's commercial seasons follow fashion buying cycles, not calendar seasons — and this logic existed nowhere in any system, only in the Commercial Director's head: e.g. SS26 runs November 2025 → October 2026; W26 runs May 2026 → April 2027.
+
+No source system contained ISO week mapping, 4-4-5 mapping, or season attribution. Without a shared calendar, every report would invent its own dates — the classic cause of "different reports disagreeing on the same number."
+
+## Decision
+
+Build a purpose-built `dim_date` dimension: one row per date, carrying ISO year, ISO week, 4-4-5 retail month, and the client's commercial season as attributes. The season logic was extracted from the Commercial Director and encoded as explicit, documented rules in the model. All facts and marts join to this single calendar — no model computes its own dates.
+
+## Consequences
+
+**Positive**
+
+- Like-for-like comparison (PW vs PWLY, 4-week rolling, YTD vs YTD LY) becomes possible and consistent everywhere.
+- One calendar = one truth; season and period definitions cannot drift between reports.
+- A critical piece of business knowledge (season logic) is captured as versioned code rather than living in one person's head — a genuine business-continuity win.
+
+**Negative / trade-offs**
+
+- `dim_date` must be extended as time passes (a small maintenance task; failure mode is new dates mapping to NULL).
+- The season boundaries are a business rule, so if the client changes buying cycles the model must be updated deliberately — documented in the handover.
+
+## Retrospective note
+
+Still one of the highest-leverage artefacts in the project. Extracting an unwritten business rule from a stakeholder and turning it into governed data is exactly the kind of work that distinguishes analytics engineering from report-building.
