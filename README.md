@@ -55,12 +55,12 @@ Weekly trade reporting went from days of manual assembly to a refresh measured i
 - **Looker Studio** — free, familiar to the team, and stakeholder-friendly without BI licences.
 
 # Sources
-| **Source**                          | **Grain**        | **Key fields**  
-| Shopify orders export               | Order line item  | Qty/price/discounts/financial status/refunds/shipping/tax      
-| Shopify products export             | Product variant  | Variant SKU, live selling price
-| Shopify inventory export            | SKU (snapshot)   | SKU, current stock on hand
-| Range plan (buyer's sheet)          | SKU              | Brand/season/category/cost/RRP/qty received etc
-| Sample sale file                    | Order line item  | Same structure as Shopify orders (formatted before upload)
-| Date dimension (built, not sourced) | Date             | ISO year/week, 4-4-5 month, season       
+- | **Source**                          | **Grain**        | **Key fields**  
+- | Shopify orders export               | Order line item  | Qty/price/discounts/refunds/shipping etc     
+- | Shopify products export             | Product variant  | Variant SKU, live selling price
+- | Shopify inventory export            | SKU (snapshot)   | SKU, current stock on hand
+- | Range plan (buyer's sheet)          | SKU              | Brand/season/category/cost/RRP/qty received etc
+- | Sample sale file                    | Order line item  | Same structure as Shopify orders (formatted before upload)
+- | Date dimension (built, not sourced) | Date             | ISO year/week, 4-4-5 month, season       
 
 
