@@ -1,0 +1,32 @@
+# ADR-001: Dataform over dbt Cloud
+
+- **Status:** Accepted
+- **Date:** 2025 (project build phase)
+- **Deciders:** Joseph Hood (Analytics Engineer)
+
+## Context
+
+The project needed a transformation layer with modular SQL, dependency management and documentation. The models were initially built using dbt patterns. The client is a small luxury fashion business with no in-house data team, running on the Google ecosystem. dbt Cloud carries a licence cost of roughly €100 per month at the entry tier — a recurring cost the client would pay indefinitely for a solo-maintained pipeline.
+
+## Decision
+
+Migrate the dbt-style SQL codebase to Dataform, Google Cloud's native transformation tool, keeping the same modular structure (staging → intermediate → marts), the same `ref()`-style dependency declarations, and the same naming conventions.
+
+## Consequences
+
+**Positive**
+
+- No additional licence cost for the client — Dataform is included with BigQuery usage.
+- Native to the client's existing GCP environment; one less vendor, one less login, one less bill.
+- The dbt patterns (layering, modularity, DAG-based execution) transfer directly, so nothing about the modelling approach was compromised.
+- The codebase remains portable back to dbt in future if the client's needs grow, because the discipline is in the patterns, not the tool.
+
+**Negative / trade-offs**
+
+- Dataform has a smaller community and ecosystem than dbt (fewer packages, fewer answered questions online).
+- Some dbt-native features (e.g. the mature testing framework and semantic layer) have no direct equivalent and would need manual equivalents.
+- Solo-maintained Dataform pipelines are less familiar to future hires than dbt — mitigated by documentation and the standard layering convention.
+
+## Retrospective note
+
+The right call for this client at this scale. The decision optimised for total cost of ownership and client sovereignty, not tool fashion. Recorded as an ADR because "why not dbt?" is the first question any data engineer reviewing this repo will ask.
