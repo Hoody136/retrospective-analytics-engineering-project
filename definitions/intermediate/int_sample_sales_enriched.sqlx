@@ -1,0 +1,46 @@
+WITH raw_sample AS (
+   -- Targeting your newly uploaded table
+   SELECT * FROM {{ source('raw_shopify', 'raw_samplesale_table') }}
+),
+
+
+products AS (
+   -- Bringing in the master product list for enrichment
+   SELECT * FROM {{ ref('dim_products') }}
+)
+
+
+SELECT
+   -- 1. Core Identifiers (Mimicking Shopify)
+   s.`Name` AS order_id,
+   SAFE_CAST(s.`Created at` AS TIMESTAMP) AS created_at,
+   'Sample Sale' AS source_platform,
+   'paid' AS financial_status,
+   s.`Lineitem sku` AS lineitem_sku,
+   SAFE_CAST(s.`Lineitem quantity` AS INT64) AS quantity,
+  
+   -- 2. Core Financials
+   SAFE_CAST(s.`Total` AS FLOAT64) AS gross_sales_gbp,
+   SAFE_CAST(s.`Subtotal` AS FLOAT64) AS net_sales_gbp,
+   SAFE_CAST(s.`Taxes` AS FLOAT64) AS tax_gbp,
+   s.`Discount Code` AS discount_code,
+
+
+   -- 3. ENRICHMENT: The Price Safety Net
+   -- If 'Lineitem price' is NULL in the sheet, grab 'gbp_rrp' from the product table
+   COALESCE(SAFE_CAST(s.`Lineitem price` AS FLOAT64), p.gbp_rrp) AS lineitem_price,
+  
+   -- 4. ENRICHMENT: The True Discount KPI
+   -- Formula: (Price * Quantity) - Revenue Made
+   (COALESCE(SAFE_CAST(s.`Lineitem price` AS FLOAT64), p.gbp_rrp) * SAFE_CAST(s.`Lineitem quantity` AS INT64))
+       - SAFE_CAST(s.`Subtotal` AS FLOAT64) AS lineitem_discount,
+
+
+   -- 5. The Liquidation OPEX
+   -- Pulling from your custom column in the raw data with exact CSV spelling
+   SAFE_CAST(s.`Lineitem Additional Sample Sale Execution Costs` AS FLOAT64) AS execution_cost_gbp
+
+
+FROM raw_sample s
+LEFT JOIN products p
+   ON s.`Lineitem sku` = p.vv_sku
