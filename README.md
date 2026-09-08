@@ -49,3 +49,8 @@ Weekly trade reporting went from days of manual assembly to a refresh measured i
 
 <img width="952" height="344" alt="Screenshot 2026-09-08 at 11 50 50" src="https://github.com/user-attachments/assets/83ebc5ef-bb2a-4ac8-99d7-400dc95c0547" />
 
+## Tech Stack
+- **BigQuery** — serverless warehouse, no infrastructure for the client to manage, generous free tier at this data volume.
+- **Dataform** (over dbt Cloud) — dbt was initially used to build, but then I took the SQL code and migrated it to Dataform (Google’s alternative) to save the client the 100 Euro-per-month cost. Same modular-SQL workflow (dbt patterns) but native to Google Cloud Platform with no additional seat cost for the client. (ADR-001)
+- **Looker Studio** — free, familiar to the team, and stakeholder-friendly without BI licences.
+
