@@ -1,0 +1,15 @@
+## Explainer - this is solely used to grab the live price from the website
+
+WITH raw_products AS (
+   -- This looks at your sources.yml file to find the raw BigQuery table
+   SELECT * FROM {{ source('raw_shopify', 'raw_products_table') }}
+)
+
+
+SELECT
+   -- Reminder: BigQuery likely replaced the spaces with underscores!
+   `Variant SKU` AS variant_sku,
+   `Variant Price` AS variant_live_price
+
+
+FROM raw_products
