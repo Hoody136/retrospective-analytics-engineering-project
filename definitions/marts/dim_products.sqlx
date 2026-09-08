@@ -1,0 +1,21 @@
+WITH shopify_products AS (
+   SELECT * FROM {{ ref('stg_products') }}
+),
+
+
+range_sheet AS (
+   SELECT * FROM {{ ref('stg_raw_range_sheet') }}
+)
+
+
+SELECT
+   -- This single line pulls every column from your master range sheet
+   r.*,
+  
+   -- And this adds just the live price from your Shopify products table
+   p.variant_live_price
+
+
+FROM range_sheet r
+LEFT JOIN shopify_products p
+   ON r.vv_sku = p.variant_sku
