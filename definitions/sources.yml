@@ -1,0 +1,15 @@
+version: 2
+
+
+sources:
+ - name: raw_shopify
+   description: "Raw operational and calendar tables in BigQuery."
+   database: "voyeur-voyeur-analytics-mvp"
+   schema: "raw_shopify_exports_voyeur_voyeur"
+   tables:
+     - name: raw_orders_table
+     - name: raw_inventory_table
+     - name: raw_products_table
+     - name: master_range_sheet
+     - name: dim_date
+     - name: raw_samplesale_table
