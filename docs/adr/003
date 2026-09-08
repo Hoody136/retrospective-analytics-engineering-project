@@ -1,0 +1,37 @@
+# ADR-003: Allocate transaction-level values down to order lines
+
+- **Status:** Accepted
+- **Date:** 2025 (project build phase)
+- **Deciders:** Joseph Hood (Analytics Engineer)
+
+## Context
+
+The project's core commercial question — "which SKUs are profitable?" — requires margin at the order-line grain. But source profiling revealed that Shopify records discount codes at the **transaction level**, not the line level: when a customer applies a code, the discount exists only on the order header. The same applies to shipping charges, taxes and refunds.
+
+Without allocation, any SKU-level margin number is wrong by construction: discounted orders would overstate line revenue, and order-level costs would be invisible at line level.
+
+## Decision
+
+Declare the fact grain as **one row per order line item**, and allocate all transaction-level values down to lines **pro-rata by each line's share of the order subtotal** (implemented in `int_orders_filled`):
+
+- Checkout discounts → apportioned by line net sales share
+- Shipping, tax, refunds → apportioned by the same line-share logic
+
+The allocation is deterministic and reversible: allocated line values always sum back to the original order-level totals (verified as a QA check — see `docs/known-issues.md` and the Quality & Trust section of the README).
+
+## Consequences
+
+**Positive**
+
+- SKU-level margin becomes possible — the entire commercial purpose of the project.
+- The reconciliation property (lines sum to order totals) gives an automatic integrity check on every refresh.
+
+**Negative / trade-offs**
+
+- Allocated values are estimates, not measurements: a discount code used because of one hero product is spread across everything in the basket. This is the standard retail-finance compromise, documented so nobody mistakes allocated margin for transactional truth.
+- Allocation adds complexity to the pipeline and to the QA burden (the shipping allocation formula is flagged on the known-issue register for verification).
+- Any change to the allocation rule changes historical KPI values — so the rule is versioned here, not tweaked casually.
+
+## Retrospective note
+
+This was the single most consequential design decision in the project, and it came from profiling the source data before building anything. The lesson carried forward: the grain decision and the allocation rule must be agreed and documented *before* transformation code is written.
