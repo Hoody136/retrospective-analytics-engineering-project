@@ -6,7 +6,7 @@
    - **Grain:** Line item / order
    - **Decision it drives:** Top-line health, sales growth tracking, budget performance
    - **SQL field:** `net_sales_gbp`
-   - **Verdict:** ✏️ **Rename** → `net_sales_before_returns_gbp` — it doesn't deduct refunds; compute true net sales (net sales before returns − refunds) at the reporting layer
+   - **Verdict:** ✏️ **Rename** → `net_sales_before_returns_gbp` — it doesn't deduct refunds; compute true net sales (net sales before returns − refunds) at the reporting layer - which was done. 
 
 2. **Gross Sales Before Discount**
    - **Definition:** Total revenue at standard listed selling price, before checkout promos or refunds
@@ -86,7 +86,7 @@
     - **Grain:** SKU / category
     - **Decision it drives:** Brand strength, markdown avoidance
     - **SQL field:** `full_price_gross_sales_gbp` exists, but no percentage field
-    - **Verdict:** ➕ **Create** → `full_price_sales_pct = SAFE_DIVIDE(full_price_gross_sales_gbp, gross_sales_before_discount_gbp)`
+    - **Verdict:** ➕ **Create** → `full_price_sales_pct = SAFE_DIVIDE(full_price_gross_sales_gbp, gross_sales_before_discount_gbp)`. This was actually done at the report/looker level with a calculated field. 
 
 12. **Discounted Gross Sales**
     - **Definition:** Gross revenue of items sold with a checkout discount
@@ -102,7 +102,7 @@
     - **Grain:** SKU / brand / category
     - **Decision it drives:** Stock health, velocity, buy performance
     - **SQL field:** `sell_through_rate` (uses fallback lifetime inventory proxy)
-    - **Verdict:** 🔄 **Rethink** — swap the proxy denominator for the imported `received_units` column
+    - **Verdict:** 🔄 **Rethink** — swap the proxy denominator for the imported `received_units` column. In the spirit of getting something useful as quickly as possible and that places performance into the context for the whole season, we agreed to use Ordered units for the demoninator. Ideally, we would have 2 measures, Total Sellthrough and Received Sellthrough
 
 14. **Weeks of Cover**
     - **Definition:** Estimated weeks current stock will last at current sales pace
@@ -110,7 +110,7 @@
     - **Grain:** SKU / store / warehouse
     - **Decision it drives:** Re-ordering schedule, markdown clearance timing, out-of-stock risk
     - **SQL fields:** `stock_weeks_cover` (PW-based) vs `weeks_of_cover` (28-day average-based)
-    - **Verdict:** 🔄 **Rethink** — standardise on the 28-day trailing average (`weeks_of_cover`); deprecate the PW version
+    - **Verdict:** 🔄 **Rethink** — standardise on the 28-day trailing average (`weeks_of_cover`); deprecate the PW version. Again, in the spirit of moving in an agile way and producing the MVP, we opted to go for a Spot cover dividing previous weeks sales units into current stock holding units. Not completely optimised, but still highly useful and actionable. 
 
 ---
 
