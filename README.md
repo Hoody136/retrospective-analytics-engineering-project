@@ -70,6 +70,27 @@ Weekly trade reporting went from days of manual assembly to a refresh measured i
 - **Shopify inventory**: snapshot only — no received-units history.
 - **Range plan**: manual formatting (currency symbols, merged cells) that broke ingestion.
 - **Sample sales**: no order numbers — IDs had to be generated in SQL.
-- **Trading Calendar**:The retail season calendar existed nowhere in any system — only in the Commercial Director's head (SS26 = Nov 2025–Oct 2026; W26 = May 2026–Apr 2027). Extracting that business rule from a human and encoding it as data was itself a sourcing task.
+- **Trading Calendar**: The retail season calendar existed nowhere in any system — only in the Commercial Director's head (SS26 = Nov 2025–Oct 2026; W26 = May 2026–Apr 2027). Extracting that business rule from a human and encoding it as data was itself a sourcing task.
+
+## What was not pulled / out of scope
+Customer level analysis/channel data. Order or Receipt tracking (full picture of commitment was obtained from the original order). 
+
+# Ingestion
+To refresh the data, the team exports the weekly Shopify CSVs, confirms the range plan is clean and current, uploads to BigQuery raw tables, and runs the Dataform workflow. Approximately 10-15 minutes work per week.
+
+## Why manual CSVs and not an API
+Deliberate trade-off, optimised for adoption over automation. The client team already worked with these exports daily — the data stayed visible and tactile, and they could verify with their own eyes that the right file was uploaded. An API would remove a manual step but introduce an invisible failure surface (batching, pagination, auth) that a non-technical team couldn't inspect or trust. 
+
+## Handling of sensitive customer data
+Deleted from Shopify CSVs before upload and process written into the handover documents. Roughly 8 columns of data, situated next to eachother. Client simply highlights and deletes. 
+
+# Warehouse
+
+## Why BigQuery?
+Serverless, cost-effective at this scale, and native to the client's Google ecosystem.
+
+## Raw layer organisation and additional table builds
+Raw tables land exactly as exported — the "photocopier, not editor" rule. Nothing is cleaned or renamed in the raw layer, so any downstream bug can be reconciled against an untouched copy of what the source actually said. dim_date: a purpose-built calendar dimension mapping every date to ISO year, ISO week, 4-4-5 retail month, and the client's commercial season. This is what makes like-for-like weekly and seasonal comparison possible at all.
+
 
 
