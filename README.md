@@ -128,3 +128,41 @@ Raw-to-model totals compared for gross sales and units; allocated line-level dis
 
 <img width="675" height="286" alt="Screenshot 2026-09-08 at 13 17 38" src="https://github.com/user-attachments/assets/b2f7dca9-85bf-46d3-8a08-182e2d2e2a83" />
 
+# Simplicity over frills - getting the reader to the answers fast
+The looker dashboard was a series of sheets that contained the same KPIs from left to right (in my experience owning 200M Euro businesses, I want my eyes to get used to seeing the same important KPIs in context). Then, different dimensions can be instantly accessed by going to the relevant page, with increasingly granular detail, all the way to Product. 
+
+## KPIs in the Looker Sheet
+
+### 💰 Sales performance (how much, and is it moving?)
+
+- **Lifetime Net Sales (GBP)** — total net revenue per season/category/brand/SKU since launch. *Why:* the headline measure of what each part of the range has actually contributed.
+- **P-4W Net Sales (GBP)** — net sales over the past 4 weeks. *Why:* the "current trading" number — smooths single-week noise so Monday decisions aren't driven by one freak week.
+- **PW Net Sales (GBP)** — previous week's net sales. *Why:* the freshest read — is it selling *right now*?
+- **P-4W vs P-8W (%)** — this 4 weeks vs the prior 4 weeks. *Why:* momentum — is demand accelerating or decaying? (The wall of negative numbers tells the end-of-season markdown story at a glance.)
+- **PW vs PW-1 (%)** — this week vs last week. *Why:* immediate reaction check — did last week's action (markdown, push, restock) work?
+
+### 🏷️ Sell-through (is the buy working?)
+
+- **Season Sell-Through (%)** — share of the season's stock sold to date. *Why:* the core buying KPI — did we buy the right things in the right depth?
+- **Previous Week Sell-Through (%)** — last week's sell-through gain. *Why:* the weekly pulse of the season — how fast is stock converting *now*?
+- **Weekly Average 4-Week Sell-Through (%)** — trailing 4-week average weekly sell-through. *Why:* smooths the weekly pulse so a promo spike doesn't trigger a false reorder.
+- **Lifetime Sales Units / PW Sales Units** — units sold, lifetime and last week. *Why:* units, not pounds, drive replenishment and size-curve decisions (a £3,000 coat and a £150 top can both be "1 unit").
+
+### 📦 Stock position (what's the risk?)
+
+- **Stock Weeks Cover** — weeks current stock lasts at current sales pace. *Why:* the reorder/markdown trigger — too low = stockout risk, too high = cash tied up, markdown incoming.
+- **Stock on Hand** — units in the warehouse. *Why:* the raw physical position behind every cover calculation.
+- **Stock Value at Cost (GBP)** — cash tied up in stock. *Why:* this is the balance-sheet view — what the business has actually spent.
+- **Stock Value at Live Price (GBP)** — potential revenue if everything sells at current price. *Why:* paired with at-cost, it frames the margin opportunity still sitting in the warehouse (and the gap between the two columns is the markdown exposure).
+
+### ✂️ Discounting & margin (are we keeping the money?)
+
+- **Lifetime Discount % / PW Discount %** — depth of discounting, lifetime and last week. *Why:* the brand-equity guardrail — the PW column catches creeping promo dependence before it becomes the strategy.
+- **Lifetime Contribution Margin % / PW Contribution Margin %** — profit kept per pound of net sales, after costs. *Why:* the "is this worth selling?" KPI — several rows show *negative* PW contribution (SS25 at −18.2%), which is exactly the "selling but losing money" flag the whole project was built to surface.
+- **Lifetime Return Rate % / PW Return Rate** — share of sales coming back. *Why:* quality/sizing surveillance — a rising PW return rate on a strong seller is the margin-eraser early warning.
+
+### 🔍 The dimensions (the drill path)
+
+Season → pre/main → brand → category → sub-category → product name → size → colour → gender.
+
+
