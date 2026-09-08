@@ -63,4 +63,13 @@ Weekly trade reporting went from days of manual assembly to a refresh measured i
 - | Sample sale file                    | Order line item  | Same structure as Shopify orders (formatted before upload)
 - | Date dimension (built, not sourced) | Date             | ISO year/week, 4-4-5 month, season       
 
+## What was wrong with each source on day 1
+
+- **Shopify orders**: discounts recorded at transaction level, not line level; contained PII.
+- **Shopify products**: no commercial attributes (brand, season, cost, RRP) — drill-down impossible from Shopify alone.
+- **Shopify inventory**: snapshot only — no received-units history.
+- **Range plan**: manual formatting (currency symbols, merged cells) that broke ingestion.
+- **Sample sales**: no order numbers — IDs had to be generated in SQL.
+- **Trading Calendar**:The retail season calendar existed nowhere in any system — only in the Commercial Director's head (SS26 = Nov 2025–Oct 2026; W26 = May 2026–Apr 2027). Extracting that business rule from a human and encoding it as data was itself a sourcing task.
+
 
