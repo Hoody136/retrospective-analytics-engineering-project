@@ -1,3 +1,5 @@
+-- Explainer - this is the raw orders data from shopify, not yet enriched. Merges too with the sample sale data
+
 
 {{ config(materialized='table') }}
 
