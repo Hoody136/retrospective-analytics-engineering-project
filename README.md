@@ -165,4 +165,35 @@ The looker dashboard was a series of sheets that contained the same KPIs from le
 
 Season → pre/main → brand → category → sub-category → product name → size → colour → gender.
 
+# AI Layer
+AI was out of scope for this project, but it could have been layered in. From a Data Product perspective, I could have built an n8n pipeline that serves organised data to an LLM (frontier or Local) and then the output is a list of the most pressing actions to take, listed by the monetary impact (discount these SKUs, remove discount on these SKUs, buy more of these SKUs, reduce commitment on these SKUs). 
+
+## Human vs AI in the workflow
+What must remain Human in the Analytics Engineering workflow? Grain declarations, KPI definitions, QA judgment, and the commercial truth of what a number means. AI can draft SQL and documentation; the decision of what should be measured stays with the person who understands the business. **This is how I approached this project**. 
+
+# Delivery & Handover
+The following papers were created to handover the project, and I also delivered a 1.5 hour handover meeting with the commercial director. Papers produced: 
+- master SQL (dbt/Dataform) file
+- data architecture diagram + DAG
+- KPI dictionary
+- Looker dashboard guide
+- updating and maintenance guide
+- handover - who needs to do what (setting up roles, taking ownership of environments)
+- Google cloud and why it won't cost you anything (yet)
+- Data security and governance (handling sensitve data)
+- I also produced a NotebookLM podcast handover to the client for rapid onboarding for a busy operator
+
+# Conclusion
+1. What was the outcome, restated in one sentence?
+A luxury retailer moved from days of manual monthly reporting to a governed, self-serve weekly trade view. One set of trusted numbers, refreshed in minutes, that drives Monday-morning action.
+
+2. What are the three things I'd do differently?
+- **Decide KPI definitions before writing SQL**. In large part, this was done. Weeks of cover existed in two conflicting versions because definitions were discovered in code rather than agreed in a dictionary first.
+Automate the manual controls.
+- **PII deletion** and range-plan formatting checks are manual steps; they should be scripted so a busy week can't break them.
+- **Tests from day one**. Reconciliation was manual spot-checking; next time, automated tests run on every refresh so trust is continuous, not remembered.
+
+3. What would Phase 2 of this project be?
+Scheduled API-based ingestion replacing manual CSV upload and automated test suite with alerting.
+
 
