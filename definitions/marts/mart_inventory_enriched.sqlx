@@ -1,0 +1,81 @@
+{{ config(materialized='table') }}
+
+
+WITH current_inventory AS (
+   -- The Fix: Now perfectly matches your sources.yml
+   SELECT * FROM {{ source('raw_shopify', 'raw_inventory_table') }}
+),
+
+
+-- ... [Keep the rest of your code exactly the same] ...
+
+
+sku_historical_performance AS (
+   -- 2. Compress the entire sales history into ONE row per SKU
+   SELECT
+       lineitem_sku,
+      
+       -- Volume KPIs
+       SUM(sales_units) AS lifetime_units_sold,
+       SUM(return_quantity) AS lifetime_units_returned,
+       SAFE_DIVIDE(SUM(return_quantity), (SUM(sales_units) + SUM(return_quantity))) AS lifetime_return_rate,
+
+
+       -- Financial KPIs
+       SUM(gross_sales_before_discount_gbp) AS lifetime_gross_sales,
+       SUM(checkout_discount_gbp) AS lifetime_discounts_given,
+       SUM(net_sales_gbp) AS lifetime_net_sales,
+       SUM(gross_profit_gbp) AS lifetime_gross_profit,
+      
+       -- Margin % (Gross Profit / Net Sales)
+       SAFE_DIVIDE(SUM(gross_profit_gbp), SUM(net_sales_gbp)) AS lifetime_gross_margin_pct,
+
+
+       -- Velocity KPIs (Just the last 28 days for ordering purposes)
+       SUM(CASE
+           WHEN DATE(SAFE_CAST(created_at AS TIMESTAMP)) >= DATE_SUB(CURRENT_DATE(), INTERVAL 28 DAY)
+           THEN sales_units
+           ELSE 0
+       END) AS units_sold_last_28_days,
+      
+       SUM(CASE
+           WHEN DATE(SAFE_CAST(created_at AS TIMESTAMP)) >= DATE_SUB(CURRENT_DATE(), INTERVAL 28 DAY)
+           THEN gross_profit_gbp
+           ELSE 0
+       END) AS gross_profit_last_28_days
+
+
+   FROM {{ ref('fct_order_lines') }}
+   WHERE financial_status = 'paid'
+   GROUP BY 1
+)
+
+
+-- 3. Glue them together
+SELECT
+   i.*,
+  
+   -- Inject the aggregated sales metrics, defaulting to 0 if the item has never sold
+   COALESCE(p.lifetime_units_sold, 0) AS lifetime_units_sold,
+   COALESCE(p.lifetime_return_rate, 0) AS lifetime_return_rate,
+   COALESCE(p.lifetime_net_sales, 0) AS lifetime_net_sales,
+   COALESCE(p.lifetime_gross_profit, 0) AS lifetime_gross_profit,
+   COALESCE(p.lifetime_gross_margin_pct, 0) AS lifetime_gross_margin_pct,
+   COALESCE(p.units_sold_last_28_days, 0) AS units_sold_last_28_days,
+   COALESCE(p.gross_profit_last_28_days, 0) AS gross_profit_last_28_days,
+
+
+   -- The Ultimate Merchandising KPI: Weeks of Cover
+   SAFE_DIVIDE(
+       -- FIX 1: Wrapped in backticks because of the spaces in the BigQuery column name
+       SAFE_CAST(i.`Available _not editable_` AS FLOAT64),
+       SAFE_DIVIDE(COALESCE(p.units_sold_last_28_days, 0), 4)
+   ) AS weeks_of_cover
+
+
+FROM current_inventory i
+LEFT JOIN sku_historical_performance p
+   -- FIX 2: Updated to the exact SKU column name from the schema
+   ON i.SKU = p.lineitem_sku
+
+
