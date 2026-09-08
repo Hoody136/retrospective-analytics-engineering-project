@@ -42,7 +42,10 @@ Robena, the commercial director, exports CSVs from Shopify and uploads them to B
 ## What proof do I have it worked?
 Weekly trade reporting went from days of manual assembly to a refresh measured in minutes. Evidence status: client-reported / directional. Client feedback: "Out of all freelancers we've worked with, you've added the most value."
 
-# High-Level Architecture
+# High-Level Architecture & DAG
 <img width="896" height="815" alt="ink" src="https://github.com/user-attachments/assets/eea7a2a2-6f54-44ba-a6cc-fdb3b22ae9a5" />
 
+<img width="955" height="365" alt="Screenshot 2026-09-08 at 11 50 43" src="https://github.com/user-attachments/assets/25e98402-c829-49a9-aad4-c9dc9140b1a3" />
+
+<img width="952" height="344" alt="Screenshot 2026-09-08 at 11 50 50" src="https://github.com/user-attachments/assets/83ebc5ef-bb2a-4ac8-99d7-400dc95c0547" />
 
