@@ -116,4 +116,9 @@ One row per order line item. Profiling sample transactions (a multi-line order, 
 - | Marts             | `mart_inventory_enriched` | 28-day velocity and stock-risk view                              
 
 
+## KPI Definitions
+All KPI definitions live in docs/kpi-dictionary.md, validated against standard retail math. Of 14 KPIs: 9 kept, 2 renamed (net_sales_gbp → net-sales-before-returns; sales_at_cost_gbp → COGS), 2 rethought (sell-through moved to received units; weeks of cover standardised on a 28-day trailing average), 1 created (full-price sales %). Full decisions and formulas in the dictionary.
+
+# Quality & Trust
+Raw-to-model totals compared for gross sales and units; allocated line-level discounts verified to sum back to the original order-level amounts; SKUs missing costs surfaced (they'd silently corrupt margin); duplicate order lines from overlapping weekly exports checked; all sales KPIs gated on paid orders; all ratios use SAFE_DIVIDE so zero-stock or zero-sales SKUs return NULL instead of breaking the pipeline.
 
