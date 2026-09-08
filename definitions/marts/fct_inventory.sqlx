@@ -1,0 +1,21 @@
+WITH inventory AS (
+   SELECT * FROM {{ ref('stg_inventory') }}
+),
+
+
+products AS (
+   SELECT * FROM {{ ref('dim_products') }}
+)
+
+
+SELECT
+   -- Pulls every column from your staging inventory table (stock levels, locations, etc.)
+   i.*,
+  
+   -- Pulls every column from dim_products, excluding duplicates like SKU and product name
+   p.*
+
+
+FROM inventory i
+LEFT JOIN products p
+   ON i.sku = p.vv_sku
