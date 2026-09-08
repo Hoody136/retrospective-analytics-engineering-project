@@ -1,0 +1,203 @@
+
+{{ config(materialized='table') }}
+
+
+WITH shopify_raw AS (
+   SELECT * FROM {{ source('raw_shopify', 'raw_orders_table') }}
+),
+
+
+sample_sale_raw AS (
+   SELECT * FROM {{ source('raw_shopify', 'raw_samplesale_table') }}
+),
+
+
+shopify_clean AS (
+   SELECT
+       -- Wrapping the messy names in backticks and renaming them using AS
+       `Name` AS order_number,
+       `Email` AS email,
+       `Financial Status` AS financial_status,
+       SAFE_CAST(`Paid at` AS TIMESTAMP) AS paid_at,
+       `Fulfillment Status` AS fulfillment_status,
+       SAFE_CAST(`Fulfilled at` AS TIMESTAMP) AS fulfilled_at,
+       `Accepts Marketing` AS accepts_marketing,
+       `Currency` AS currency,
+       SAFE_CAST(`Subtotal` AS FLOAT64) AS subtotal,
+       SAFE_CAST(`Shipping` AS FLOAT64) AS shipping,
+       SAFE_CAST(`Taxes` AS FLOAT64) AS taxes,
+       SAFE_CAST(`Total` AS FLOAT64) AS total,
+       `Discount Code` AS discount_code,
+       SAFE_CAST(`Discount Amount` AS FLOAT64) AS discount_amount,
+       `Shipping Method` AS shipping_method,
+       SAFE_CAST(`Created at` AS TIMESTAMP) AS created_at,
+       SAFE_CAST(`Lineitem quantity` AS INT64) AS lineitem_quantity,
+       `Lineitem name` AS product_name,
+       SAFE_CAST(`Lineitem price` AS FLOAT64) AS lineitem_price,
+       SAFE_CAST(`Lineitem compare at price` AS FLOAT64) AS lineitem_compare_at_price,
+       `Lineitem sku` AS lineitem_sku,
+       `Lineitem requires shipping` AS lineitem_requires_shipping,
+       `Lineitem taxable` AS lineitem_taxable,
+       `Lineitem fulfillment status` AS lineitem_fulfillment_status,
+       `Billing Name` AS billing_name,
+       `Billing Street` AS billing_street,
+       `Billing Address1` AS billing_address_1,
+       `Billing Address2` AS billing_address_2,
+       `Billing Company` AS billing_company,
+       `Billing City` AS billing_city,
+       `Billing Zip` AS billing_zip,
+       `Billing Province` AS billing_province,
+       `Billing Country` AS billing_country,
+       `Billing Phone` AS billing_phone,
+       `Shipping Name` AS shipping_name,
+       `Shipping Street` AS shipping_street,
+       `Shipping Address1` AS shipping_address_1,
+       `Shipping Address2` AS shipping_address_2,
+       `Shipping Company` AS shipping_company,
+       `Shipping City` AS shipping_city,
+       `Shipping Zip` AS shipping_zip,
+       `Shipping Province` AS shipping_province,
+       `Shipping Country` AS shipping_country,
+       `Shipping Phone` AS shipping_phone,
+       `Notes` AS notes,
+       `Note Attributes` AS note_attributes,
+       SAFE_CAST(`Cancelled at` AS TIMESTAMP) AS cancelled_at,
+       `Payment Method` AS payment_method,
+       `Payment Reference` AS payment_reference,
+       SAFE_CAST(`Refunded Amount` AS FLOAT64) AS refunded_amount,
+       `Vendor` AS vendor,
+       SAFE_CAST(`Outstanding Balance` AS FLOAT64) AS outstanding_balance,
+       `Employee` AS employee,
+       `Location` AS `location`,
+       SAFE_CAST(`Device ID` AS STRING) AS device_id,
+       SAFE_CAST(`Id` AS STRING) AS order_id,
+       `Tags` AS tags,
+       `Risk Level` AS risk_level,
+       `Source` AS source,
+       SAFE_CAST(`Lineitem discount` AS FLOAT64) AS lineitem_discount,
+       `Tax 1 Name` AS tax_1_name,
+       SAFE_CAST(`Tax 1 Value` AS FLOAT64) AS tax_1_value,
+       `Tax 2 Name` AS tax_2_name,
+       SAFE_CAST(`Tax 2 Value` AS FLOAT64) AS tax_2_value,
+       `Tax 3 Name` AS tax_3_name,
+       SAFE_CAST(`Tax 3 Value` AS FLOAT64) AS tax_3_value,
+       `Tax 4 Name` AS tax_4_name,
+       SAFE_CAST(`Tax 4 Value` AS FLOAT64) AS tax_4_value,
+       `Tax 5 Name` AS tax_5_name,
+       SAFE_CAST(`Tax 5 Value` AS FLOAT64) AS tax_5_value,
+       SAFE_CAST(`Phone` AS STRING) AS phone,
+       SAFE_CAST(`Receipt Number` AS STRING) AS receipt_number,
+       `Duties` AS duties,
+       `Billing Province Name` AS billing_province_name,
+       `Shipping Province Name` AS shipping_province_name,
+       SAFE_CAST(`Payment ID` AS STRING) AS payment_id,
+       `Payment Terms Name` AS payment_terms_name,
+       SAFE_CAST(`Next Payment Due At` AS TIMESTAMP) AS next_payment_due_at,
+       `Payment References` AS payment_references,
+      
+       -- INJECT: Shopify has 0 liquidation execution costs
+       0.0 AS execution_cost_gbp
+
+
+   FROM shopify_raw
+),
+
+
+sample_sale_clean AS (
+   SELECT
+       -- Automatically generates a unique Order ID if the CSV column is blank
+       COALESCE(`Name`, CONCAT('SS-', CAST(GENERATE_UUID() AS STRING))) AS order_number,
+       `Email` AS email,
+       `Financial Status` AS financial_status,
+       SAFE_CAST(`Paid at` AS TIMESTAMP) AS paid_at,
+       `Fulfillment Status` AS fulfillment_status,
+       SAFE_CAST(`Fulfilled at` AS TIMESTAMP) AS fulfilled_at,
+       `Accepts Marketing` AS accepts_marketing,
+       `Currency` AS currency,
+       SAFE_CAST(`Subtotal` AS FLOAT64) AS subtotal,
+       SAFE_CAST(`Shipping` AS FLOAT64) AS shipping,
+       SAFE_CAST(`Taxes` AS FLOAT64) AS taxes,
+       SAFE_CAST(`Total` AS FLOAT64) AS total,
+       `Discount Code` AS discount_code,
+       SAFE_CAST(`Discount Amount` AS FLOAT64) AS discount_amount,
+       `Shipping Method` AS shipping_method,
+      
+       -- Uses the 'Paid at' timestamp if 'Created at' is blank
+       COALESCE(SAFE_CAST(`Created at` AS TIMESTAMP), SAFE_CAST(`Paid at` AS TIMESTAMP)) AS created_at,
+      
+       SAFE_CAST(`Lineitem quantity` AS INT64) AS lineitem_quantity,
+       `Lineitem name` AS product_name,
+       SAFE_CAST(`Lineitem price` AS FLOAT64) AS lineitem_price,
+       SAFE_CAST(`Lineitem compare at price` AS FLOAT64) AS lineitem_compare_at_price,
+       `Lineitem sku` AS lineitem_sku,
+       `Lineitem requires shipping` AS lineitem_requires_shipping,
+       `Lineitem taxable` AS lineitem_taxable,
+       `Lineitem fulfillment status` AS lineitem_fulfillment_status,
+       `Billing Name` AS billing_name,
+       `Billing Street` AS billing_street,
+       `Billing Address1` AS billing_address_1,
+       `Billing Address2` AS billing_address_2,
+       `Billing Company` AS billing_company,
+       `Billing City` AS billing_city,
+       `Billing Zip` AS billing_zip,
+       `Billing Province` AS billing_province,
+       `Billing Country` AS billing_country,
+       `Billing Phone` AS billing_phone,
+       `Shipping Name` AS shipping_name,
+       `Shipping Street` AS shipping_street,
+       `Shipping Address1` AS shipping_address_1,
+       `Shipping Address2` AS shipping_address_2,
+       `Shipping Company` AS shipping_company,
+       `Shipping City` AS shipping_city,
+       `Shipping Zip` AS shipping_zip,
+       `Shipping Province` AS shipping_province,
+       `Shipping Country` AS shipping_country,
+       `Shipping Phone` AS shipping_phone,
+       `Notes` AS notes,
+       `Note Attributes` AS note_attributes,
+       SAFE_CAST(`Cancelled at` AS TIMESTAMP) AS cancelled_at,
+       `Payment Method` AS payment_method,
+       `Payment Reference` AS payment_reference,
+       SAFE_CAST(`Refunded Amount` AS FLOAT64) AS refunded_amount,
+       `Vendor` AS vendor,
+       SAFE_CAST(`Outstanding Balance` AS FLOAT64) AS outstanding_balance,
+       `Employee` AS employee,
+       `Location` AS `location`,
+       SAFE_CAST(`Device ID` AS STRING) AS device_id,
+       SAFE_CAST(`Id` AS STRING) AS order_id,
+       `Tags` AS tags,
+       `Risk Level` AS risk_level,
+       `Source` AS source,
+       SAFE_CAST(`Lineitem discount` AS FLOAT64) AS lineitem_discount,
+       `Tax 1 Name` AS tax_1_name,
+       SAFE_CAST(`Tax 1 Value` AS FLOAT64) AS tax_1_value,
+       `Tax 2 Name` AS tax_2_name,
+       SAFE_CAST(`Tax 2 Value` AS FLOAT64) AS tax_2_value,
+       `Tax 3 Name` AS tax_3_name,
+       SAFE_CAST(`Tax 3 Value` AS FLOAT64) AS tax_3_value,
+       `Tax 4 Name` AS tax_4_name,
+       SAFE_CAST(`Tax 4 Value` AS FLOAT64) AS tax_4_value,
+       `Tax 5 Name` AS tax_5_name,
+       SAFE_CAST(`Tax 5 Value` AS FLOAT64) AS tax_5_value,
+       SAFE_CAST(`Phone` AS STRING) AS phone,
+       SAFE_CAST(`Receipt Number` AS STRING) AS receipt_number,
+       `Duties` AS duties,
+       `Billing Province Name` AS billing_province_name,
+       `Shipping Province Name` AS shipping_province_name,
+       SAFE_CAST(`Payment ID` AS STRING) AS payment_id,
+       `Payment Terms Name` AS payment_terms_name,
+       SAFE_CAST(`Next Payment Due At` AS TIMESTAMP) AS next_payment_due_at,
+       `Payment References` AS payment_references,
+      
+       -- INJECT: The new cost column strictly for sample sales
+       SAFE_CAST(`Lineitem Additional Sample Sale Execution Costs` AS FLOAT64) AS execution_cost_gbp
+
+
+   FROM sample_sale_raw
+)
+
+
+-- STACK THEM IMMEDIATELY
+SELECT * FROM shopify_clean
+UNION ALL
+SELECT * FROM sample_sale_clean
