@@ -28,7 +28,16 @@ Decisions made on gut feel rather than being data-driven.
 
 # Solution
 
+## What Mondays look like now
+Robena, the commercial director, exports CSVs from Shopify and uploads them to Big Query. This takes about 10 minutes each week. Transformation & business logic is applied via dbt/Dataform and a Looker dashboard instantly updates, with multiple pages for increasing levels of granularity in performance. Answers: what sold last week and at what margin; which SKUs, brands and categories are driving profitable growth; which SKUs are selling at poor margins or are markdown-exposed; and what needs action this week. A template view also lets the team share sell-through performance with brand partners.
 
+## What I built - one sentence per layer
+
+**Sources**: Shopify orders, products and inventory exports, the buyer's range plan, and a sample sale file.
+**Ingestion**: Weekly CSV uploads into untouched BigQuery raw tables, with personal data deleted before anything leaves Shopify.
+**Warehouse**: A raw layer preserved as-delivered, plus a purpose-built date dimension carrying ISO weeks, 4-4-5 retail months and the client's season calendar.
+**Transformation**: Dataform models that clean and standardise the sources, allocate transaction-level discounts and order costs down to order lines, enrich sales with range-plan attributes, and compute retail KPIs on a single declared grain.
+**Activation**: Looker Studio pages that drill from business summary → brand/category → SKU.
 
 
 
