@@ -1,0 +1,49 @@
+-- Explainer - this is the sheet with all the enrichment data
+
+WITH raw_range_sheet AS (
+   -- This looks at your sources.yml file to find the raw BigQuery table
+   SELECT * FROM {{ source('raw_shopify', 'master_range_sheet') }}
+)
+
+
+SELECT
+   `NOTE` AS note,
+   `PO` AS po,
+   `VV SKU _Internal_` AS vv_sku,
+   `BRAND` AS brand,
+   `SEASON` AS season,
+   `PRE_MAIN` AS pre_main,
+   `CATEGORY` AS category,
+   `SUB CATEGORY` AS sub_category,
+   `STYLE CODES` AS style_codes,
+   `FABRIC CODE` AS fabric_code,
+   `COMPOSITION 1` AS composition_1,
+   `COMPOSITION 2` AS composition_2,
+   `COUNTRY OF ORIGIN` AS country_of_origin,
+   `PRODUCT NAME` AS product_name,
+   `BRAND COLOUR` AS brand_colour,
+   `VV COLOUR` AS vv_colour,
+   `GENDER` AS gender,
+   `BARCODES` AS barcodes,
+   `BRANDUPC_BARCODE` AS brand_upc_barcode,
+   `HS BARCODES` AS hs_barcodes,
+    SAFE_CAST(`GBP RRP` AS FLOAT64) AS gbp_rrp,
+    SAFE_CAST(`EUR RRP` AS FLOAT64) AS eur_rrp,
+   `COST CURRENCY` AS cost_currency,
+   `SIZE` AS product_size,
+    SAFE_CAST(`QTY ON ORDER` AS INT64) AS qty_on_order,
+    SAFE_CAST(`QTY RECEIVED` AS INT64) AS qty_received,
+    SAFE_CAST(`UNIT COST _ORIGINAL_` AS FLOAT64) AS unit_cost_original,
+    SAFE_CAST(`ORDER COST _ORIGINAL_` AS FLOAT64) AS order_cost_original,
+    SAFE_CAST(`DELIVERY PERIOD` AS DATE) AS delivery_period,
+    SAFE_CAST(`DELIVERY DATE` AS DATE) AS delivery_date,
+    SAFE_CAST(`TURNAROUND_DAYS` AS INT64) AS turnaround_days,
+    SAFE_CAST(`LIVE DATE` AS DATE) AS live_date,
+    SAFE_CAST(`Live Price _` AS FLOAT64) AS live_price_do_not_use,
+    SAFE_CAST(`FX RATE: GBP to EURO` AS FLOAT64) AS fx_rate_gbp_to_euro,
+    SAFE_CAST(`FX RATE: USD to EURO` AS FLOAT64) AS fx_rate_usd_to_euro,
+    SAFE_CAST(`FX RATE: USD to GBP` AS FLOAT64) AS fx_rate_usd_to_gbp,
+    SAFE_CAST(`UNIT COST - GBP` AS FLOAT64) AS unit_cost_gbp,
+    SAFE_CAST(`DELIVERY WINDOW OPEN` AS DATE) AS delivery_window_open,
+    SAFE_CAST(`DELIVERY WINDOW CLOSE` AS DATE) AS delivery_window_close
+FROM raw_range_sheet
