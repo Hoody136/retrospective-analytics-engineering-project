@@ -54,3 +54,13 @@ Weekly trade reporting went from days of manual assembly to a refresh measured i
 - **Dataform** (over dbt Cloud) — dbt was initially used to build, but then I took the SQL code and migrated it to Dataform (Google’s alternative) to save the client the 100 Euro-per-month cost. Same modular-SQL workflow (dbt patterns) but native to Google Cloud Platform with no additional seat cost for the client. (ADR-001)
 - **Looker Studio** — free, familiar to the team, and stakeholder-friendly without BI licences.
 
+# Sources
+| **Source**                          | **Grain**        | **Key fields**  
+| Shopify orders export               | Order line item  | Qty/price/discounts/financial status/refunds/shipping/tax      
+| Shopify products export             | Product variant  | Variant SKU, live selling price
+| Shopify inventory export            | SKU (snapshot)   | SKU, current stock on hand
+| Range plan (buyer's sheet)          | SKU              | Brand/season/category/cost/RRP/qty received etc
+| Sample sale file                    | Order line item  | Same structure as Shopify orders (formatted before upload)
+| Date dimension (built, not sourced) | Date             | ISO year/week, 4-4-5 month, season       
+
+
