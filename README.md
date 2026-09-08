@@ -1,3 +1,4 @@
+
 # retrospective-analytics-engineering-project
 
 # Headline
@@ -125,4 +126,5 @@ Raw-to-model totals compared for gross sales and units; allocated line-level dis
 # Activation & BI - Looker
 <img width="1266" height="582" alt="Screenshot 2026-09-08 at 13 13 11" src="https://github.com/user-attachments/assets/8634a56c-5c91-4108-ab95-6b829478a718" />
 
+<img width="675" height="286" alt="Screenshot 2026-09-08 at 13 17 38" src="https://github.com/user-attachments/assets/b2f7dca9-85bf-46d3-8a08-182e2d2e2a83" />
 
