@@ -1,0 +1,1273 @@
+Sources.yml
+version: 2
+
+
+sources:
+ - name: raw_shopify
+   description: "Raw operational and calendar tables in BigQuery."
+   database: "voyeur-voyeur-analytics-mvp"
+   schema: "raw_shopify_exports_voyeur_voyeur"
+   tables:
+     - name: raw_orders_table
+     - name: raw_inventory_table
+     - name: raw_products_table
+     - name: master_range_sheet
+     - name: dim_date
+     - name: raw_samplesale_table
+
+
+
+
+
+Staging folder
+
+Stg_raw_range_sheet
+
+Explainer - this is the sheet with all the enrichment data
+
+WITH raw_range_sheet AS (
+   -- This looks at your sources.yml file to find the raw BigQuery table
+   SELECT * FROM {{ source('raw_shopify', 'master_range_sheet') }}
+)
+
+
+SELECT
+   `NOTE` AS note,
+   `PO` AS po,
+   `VV SKU _Internal_` AS vv_sku,
+   `BRAND` AS brand,
+   `SEASON` AS season,
+   `PRE_MAIN` AS pre_main,
+   `CATEGORY` AS category,
+   `SUB CATEGORY` AS sub_category,
+   `STYLE CODES` AS style_codes,
+   `FABRIC CODE` AS fabric_code,
+   `COMPOSITION 1` AS composition_1,
+   `COMPOSITION 2` AS composition_2,
+   `COUNTRY OF ORIGIN` AS country_of_origin,
+   `PRODUCT NAME` AS product_name,
+   `BRAND COLOUR` AS brand_colour,
+   `VV COLOUR` AS vv_colour,
+   `GENDER` AS gender,
+   `BARCODES` AS barcodes,
+   `BRANDUPC_BARCODE` AS brand_upc_barcode,
+   `HS BARCODES` AS hs_barcodes,
+    SAFE_CAST(`GBP RRP` AS FLOAT64) AS gbp_rrp,
+    SAFE_CAST(`EUR RRP` AS FLOAT64) AS eur_rrp,
+   `COST CURRENCY` AS cost_currency,
+   `SIZE` AS product_size,
+    SAFE_CAST(`QTY ON ORDER` AS INT64) AS qty_on_order,
+    SAFE_CAST(`QTY RECEIVED` AS INT64) AS qty_received,
+    SAFE_CAST(`UNIT COST _ORIGINAL_` AS FLOAT64) AS unit_cost_original,
+    SAFE_CAST(`ORDER COST _ORIGINAL_` AS FLOAT64) AS order_cost_original,
+    SAFE_CAST(`DELIVERY PERIOD` AS DATE) AS delivery_period,
+    SAFE_CAST(`DELIVERY DATE` AS DATE) AS delivery_date,
+    SAFE_CAST(`TURNAROUND_DAYS` AS INT64) AS turnaround_days,
+    SAFE_CAST(`LIVE DATE` AS DATE) AS live_date,
+    SAFE_CAST(`Live Price _` AS FLOAT64) AS live_price_do_not_use,
+    SAFE_CAST(`FX RATE: GBP to EURO` AS FLOAT64) AS fx_rate_gbp_to_euro,
+    SAFE_CAST(`FX RATE: USD to EURO` AS FLOAT64) AS fx_rate_usd_to_euro,
+    SAFE_CAST(`FX RATE: USD to GBP` AS FLOAT64) AS fx_rate_usd_to_gbp,
+    SAFE_CAST(`UNIT COST - GBP` AS FLOAT64) AS unit_cost_gbp,
+    SAFE_CAST(`DELIVERY WINDOW OPEN` AS DATE) AS delivery_window_open,
+    SAFE_CAST(`DELIVERY WINDOW CLOSE` AS DATE) AS delivery_window_close
+FROM raw_range_sheet
+
+
+
+Stg_products
+
+Explainer - this is solely used to grab the live price from the website
+
+WITH raw_products AS (
+   -- This looks at your sources.yml file to find the raw BigQuery table
+   SELECT * FROM {{ source('raw_shopify', 'raw_products_table') }}
+)
+
+
+SELECT
+   -- Reminder: BigQuery likely replaced the spaces with underscores!
+   `Variant SKU` AS variant_sku,
+   `Variant Price` AS variant_live_price
+
+
+FROM raw_products
+
+
+
+
+
+Stg_order
+Explainer - this is the raw orders data from shopify, not yet enriched. Merges too with the sample sale data
+
+{{ config(materialized='table') }}
+
+
+WITH shopify_raw AS (
+   SELECT * FROM {{ source('raw_shopify', 'raw_orders_table') }}
+),
+
+
+sample_sale_raw AS (
+   SELECT * FROM {{ source('raw_shopify', 'raw_samplesale_table') }}
+),
+
+
+shopify_clean AS (
+   SELECT
+       -- Wrapping the messy names in backticks and renaming them using AS
+       `Name` AS order_number,
+       `Email` AS email,
+       `Financial Status` AS financial_status,
+       SAFE_CAST(`Paid at` AS TIMESTAMP) AS paid_at,
+       `Fulfillment Status` AS fulfillment_status,
+       SAFE_CAST(`Fulfilled at` AS TIMESTAMP) AS fulfilled_at,
+       `Accepts Marketing` AS accepts_marketing,
+       `Currency` AS currency,
+       SAFE_CAST(`Subtotal` AS FLOAT64) AS subtotal,
+       SAFE_CAST(`Shipping` AS FLOAT64) AS shipping,
+       SAFE_CAST(`Taxes` AS FLOAT64) AS taxes,
+       SAFE_CAST(`Total` AS FLOAT64) AS total,
+       `Discount Code` AS discount_code,
+       SAFE_CAST(`Discount Amount` AS FLOAT64) AS discount_amount,
+       `Shipping Method` AS shipping_method,
+       SAFE_CAST(`Created at` AS TIMESTAMP) AS created_at,
+       SAFE_CAST(`Lineitem quantity` AS INT64) AS lineitem_quantity,
+       `Lineitem name` AS product_name,
+       SAFE_CAST(`Lineitem price` AS FLOAT64) AS lineitem_price,
+       SAFE_CAST(`Lineitem compare at price` AS FLOAT64) AS lineitem_compare_at_price,
+       `Lineitem sku` AS lineitem_sku,
+       `Lineitem requires shipping` AS lineitem_requires_shipping,
+       `Lineitem taxable` AS lineitem_taxable,
+       `Lineitem fulfillment status` AS lineitem_fulfillment_status,
+       `Billing Name` AS billing_name,
+       `Billing Street` AS billing_street,
+       `Billing Address1` AS billing_address_1,
+       `Billing Address2` AS billing_address_2,
+       `Billing Company` AS billing_company,
+       `Billing City` AS billing_city,
+       `Billing Zip` AS billing_zip,
+       `Billing Province` AS billing_province,
+       `Billing Country` AS billing_country,
+       `Billing Phone` AS billing_phone,
+       `Shipping Name` AS shipping_name,
+       `Shipping Street` AS shipping_street,
+       `Shipping Address1` AS shipping_address_1,
+       `Shipping Address2` AS shipping_address_2,
+       `Shipping Company` AS shipping_company,
+       `Shipping City` AS shipping_city,
+       `Shipping Zip` AS shipping_zip,
+       `Shipping Province` AS shipping_province,
+       `Shipping Country` AS shipping_country,
+       `Shipping Phone` AS shipping_phone,
+       `Notes` AS notes,
+       `Note Attributes` AS note_attributes,
+       SAFE_CAST(`Cancelled at` AS TIMESTAMP) AS cancelled_at,
+       `Payment Method` AS payment_method,
+       `Payment Reference` AS payment_reference,
+       SAFE_CAST(`Refunded Amount` AS FLOAT64) AS refunded_amount,
+       `Vendor` AS vendor,
+       SAFE_CAST(`Outstanding Balance` AS FLOAT64) AS outstanding_balance,
+       `Employee` AS employee,
+       `Location` AS `location`,
+       SAFE_CAST(`Device ID` AS STRING) AS device_id,
+       SAFE_CAST(`Id` AS STRING) AS order_id,
+       `Tags` AS tags,
+       `Risk Level` AS risk_level,
+       `Source` AS source,
+       SAFE_CAST(`Lineitem discount` AS FLOAT64) AS lineitem_discount,
+       `Tax 1 Name` AS tax_1_name,
+       SAFE_CAST(`Tax 1 Value` AS FLOAT64) AS tax_1_value,
+       `Tax 2 Name` AS tax_2_name,
+       SAFE_CAST(`Tax 2 Value` AS FLOAT64) AS tax_2_value,
+       `Tax 3 Name` AS tax_3_name,
+       SAFE_CAST(`Tax 3 Value` AS FLOAT64) AS tax_3_value,
+       `Tax 4 Name` AS tax_4_name,
+       SAFE_CAST(`Tax 4 Value` AS FLOAT64) AS tax_4_value,
+       `Tax 5 Name` AS tax_5_name,
+       SAFE_CAST(`Tax 5 Value` AS FLOAT64) AS tax_5_value,
+       SAFE_CAST(`Phone` AS STRING) AS phone,
+       SAFE_CAST(`Receipt Number` AS STRING) AS receipt_number,
+       `Duties` AS duties,
+       `Billing Province Name` AS billing_province_name,
+       `Shipping Province Name` AS shipping_province_name,
+       SAFE_CAST(`Payment ID` AS STRING) AS payment_id,
+       `Payment Terms Name` AS payment_terms_name,
+       SAFE_CAST(`Next Payment Due At` AS TIMESTAMP) AS next_payment_due_at,
+       `Payment References` AS payment_references,
+      
+       -- INJECT: Shopify has 0 liquidation execution costs
+       0.0 AS execution_cost_gbp
+
+
+   FROM shopify_raw
+),
+
+
+sample_sale_clean AS (
+   SELECT
+       -- Automatically generates a unique Order ID if the CSV column is blank
+       COALESCE(`Name`, CONCAT('SS-', CAST(GENERATE_UUID() AS STRING))) AS order_number,
+       `Email` AS email,
+       `Financial Status` AS financial_status,
+       SAFE_CAST(`Paid at` AS TIMESTAMP) AS paid_at,
+       `Fulfillment Status` AS fulfillment_status,
+       SAFE_CAST(`Fulfilled at` AS TIMESTAMP) AS fulfilled_at,
+       `Accepts Marketing` AS accepts_marketing,
+       `Currency` AS currency,
+       SAFE_CAST(`Subtotal` AS FLOAT64) AS subtotal,
+       SAFE_CAST(`Shipping` AS FLOAT64) AS shipping,
+       SAFE_CAST(`Taxes` AS FLOAT64) AS taxes,
+       SAFE_CAST(`Total` AS FLOAT64) AS total,
+       `Discount Code` AS discount_code,
+       SAFE_CAST(`Discount Amount` AS FLOAT64) AS discount_amount,
+       `Shipping Method` AS shipping_method,
+      
+       -- Uses the 'Paid at' timestamp if 'Created at' is blank
+       COALESCE(SAFE_CAST(`Created at` AS TIMESTAMP), SAFE_CAST(`Paid at` AS TIMESTAMP)) AS created_at,
+      
+       SAFE_CAST(`Lineitem quantity` AS INT64) AS lineitem_quantity,
+       `Lineitem name` AS product_name,
+       SAFE_CAST(`Lineitem price` AS FLOAT64) AS lineitem_price,
+       SAFE_CAST(`Lineitem compare at price` AS FLOAT64) AS lineitem_compare_at_price,
+       `Lineitem sku` AS lineitem_sku,
+       `Lineitem requires shipping` AS lineitem_requires_shipping,
+       `Lineitem taxable` AS lineitem_taxable,
+       `Lineitem fulfillment status` AS lineitem_fulfillment_status,
+       `Billing Name` AS billing_name,
+       `Billing Street` AS billing_street,
+       `Billing Address1` AS billing_address_1,
+       `Billing Address2` AS billing_address_2,
+       `Billing Company` AS billing_company,
+       `Billing City` AS billing_city,
+       `Billing Zip` AS billing_zip,
+       `Billing Province` AS billing_province,
+       `Billing Country` AS billing_country,
+       `Billing Phone` AS billing_phone,
+       `Shipping Name` AS shipping_name,
+       `Shipping Street` AS shipping_street,
+       `Shipping Address1` AS shipping_address_1,
+       `Shipping Address2` AS shipping_address_2,
+       `Shipping Company` AS shipping_company,
+       `Shipping City` AS shipping_city,
+       `Shipping Zip` AS shipping_zip,
+       `Shipping Province` AS shipping_province,
+       `Shipping Country` AS shipping_country,
+       `Shipping Phone` AS shipping_phone,
+       `Notes` AS notes,
+       `Note Attributes` AS note_attributes,
+       SAFE_CAST(`Cancelled at` AS TIMESTAMP) AS cancelled_at,
+       `Payment Method` AS payment_method,
+       `Payment Reference` AS payment_reference,
+       SAFE_CAST(`Refunded Amount` AS FLOAT64) AS refunded_amount,
+       `Vendor` AS vendor,
+       SAFE_CAST(`Outstanding Balance` AS FLOAT64) AS outstanding_balance,
+       `Employee` AS employee,
+       `Location` AS `location`,
+       SAFE_CAST(`Device ID` AS STRING) AS device_id,
+       SAFE_CAST(`Id` AS STRING) AS order_id,
+       `Tags` AS tags,
+       `Risk Level` AS risk_level,
+       `Source` AS source,
+       SAFE_CAST(`Lineitem discount` AS FLOAT64) AS lineitem_discount,
+       `Tax 1 Name` AS tax_1_name,
+       SAFE_CAST(`Tax 1 Value` AS FLOAT64) AS tax_1_value,
+       `Tax 2 Name` AS tax_2_name,
+       SAFE_CAST(`Tax 2 Value` AS FLOAT64) AS tax_2_value,
+       `Tax 3 Name` AS tax_3_name,
+       SAFE_CAST(`Tax 3 Value` AS FLOAT64) AS tax_3_value,
+       `Tax 4 Name` AS tax_4_name,
+       SAFE_CAST(`Tax 4 Value` AS FLOAT64) AS tax_4_value,
+       `Tax 5 Name` AS tax_5_name,
+       SAFE_CAST(`Tax 5 Value` AS FLOAT64) AS tax_5_value,
+       SAFE_CAST(`Phone` AS STRING) AS phone,
+       SAFE_CAST(`Receipt Number` AS STRING) AS receipt_number,
+       `Duties` AS duties,
+       `Billing Province Name` AS billing_province_name,
+       `Shipping Province Name` AS shipping_province_name,
+       SAFE_CAST(`Payment ID` AS STRING) AS payment_id,
+       `Payment Terms Name` AS payment_terms_name,
+       SAFE_CAST(`Next Payment Due At` AS TIMESTAMP) AS next_payment_due_at,
+       `Payment References` AS payment_references,
+      
+       -- INJECT: The new cost column strictly for sample sales
+       SAFE_CAST(`Lineitem Additional Sample Sale Execution Costs` AS FLOAT64) AS execution_cost_gbp
+
+
+   FROM sample_sale_raw
+)
+
+
+-- STACK THEM IMMEDIATELY
+SELECT * FROM shopify_clean
+UNION ALL
+SELECT * FROM sample_sale_clean
+
+
+
+
+
+Stg_inventory
+
+Explainer - this is the raw inventory data, not yet enriched
+
+WITH raw_inventory AS (
+   -- This looks at your sources.yml file to find the raw BigQuery table
+   SELECT * FROM {{ source('raw_shopify', 'raw_inventory_table') }}
+)
+
+
+SELECT
+   -- Wrapping the messy names in backticks and renaming them using AS
+   `Handle` AS handle,
+   `Title` AS title,
+   `Option1 Name` AS option1_name,
+   `Option1 Value` AS option1_value,
+   `Option2 Name` AS option2_name,
+   `Option2 Value` AS option2_value,
+   `Option3 Name` AS option3_name,
+   `Option3 Value` AS option3_value,
+   `SKU` AS sku,
+   `HS Code` AS hs_code,
+   `COO` AS coo,
+   `Location` AS `location`,
+   `Bin name` AS bin_name,
+    SAFE_CAST(`Incoming _not editable_` AS INT64) AS incoming,
+    SAFE_CAST(`Unavailable _not editable_` AS INT64) AS unavailable,
+    SAFE_CAST(`Committed _not editable_` AS INT64) AS `committed`,
+    SAFE_CAST(`Available _not editable_` AS INT64) AS available,
+    SAFE_CAST(`On hand _current_` AS INT64) AS on_hand_current,
+    SAFE_CAST(`On hand _new_` AS INT64) AS on_hand_new
+FROM raw_inventory
+
+
+
+
+
+
+
+Stg_dim_date
+
+Explainer - attributes every week from 2024-2034 with an ISO week/Month/Year and also attributes with a specific seasonal code that is company specific for both Summer and Winter Season. Recently added a new ‘ISO_Month’ column. ISO months work like this in terms of weeks = 4.4.5. (4 weeks in Jan, 4 in Feb, 5 in March, repeated for each quarter like so, just like in retail). 
+
+WITH raw_dim_date AS (
+   -- This targets the raw dim_date table in your source dataset
+   SELECT * FROM {{ source('raw_shopify', 'dim_date') }}
+)
+
+
+SELECT
+   *, -- Pulls through date, iso_week, calendar_month, seasons, etc.
+  
+   -------------------------------------------------------------------------
+   -- RETAIL 4-4-5 ISO MONTH LOGIC (Includes 53-week safeguard)
+   -------------------------------------------------------------------------
+   CASE
+       WHEN iso_week BETWEEN 1 AND 4 THEN 'ISO_Month_01_Jan'
+       WHEN iso_week BETWEEN 5 AND 8 THEN 'ISO_Month_02_Feb'
+       WHEN iso_week BETWEEN 9 AND 13 THEN 'ISO_Month_03_Mar'
+       WHEN iso_week BETWEEN 14 AND 17 THEN 'ISO_Month_04_Apr'
+       WHEN iso_week BETWEEN 18 AND 21 THEN 'ISO_Month_05_May'
+       WHEN iso_week BETWEEN 22 AND 26 THEN 'ISO_Month_06_Jun'
+       WHEN iso_week BETWEEN 27 AND 30 THEN 'ISO_Month_07_Jul'
+       WHEN iso_week BETWEEN 31 AND 34 THEN 'ISO_Month_08_Aug'
+       WHEN iso_week BETWEEN 35 AND 39 THEN 'ISO_Month_09_Sep'
+       WHEN iso_week BETWEEN 40 AND 43 THEN 'ISO_Month_10_Oct'
+       WHEN iso_week BETWEEN 44 AND 47 THEN 'ISO_Month_11_Nov'
+       WHEN iso_week >= 48 THEN 'ISO_Month_12_Dec'
+   END AS iso_month
+
+
+FROM raw_dim_date
+
+
+FROM raw_dim_date
+
+
+
+Intermediate
+Int_orders_filled
+
+WITH raw_orders AS (
+   SELECT * FROM {{ ref('stg_orders') }}
+),
+
+
+----------------------------------------------------------------------------------
+-- STEP 1: TRANSACTION HEADERS & HELPER COLUMNS
+----------------------------------------------------------------------------------
+order_headers AS (
+   SELECT
+       *,
+       (COALESCE(subtotal, 0) + COALESCE(discount_amount, 0)) AS total_before_discount,
+       SAFE_DIVIDE(
+           COALESCE(discount_amount, 0),
+           (COALESCE(subtotal, 0) + COALESCE(discount_amount, 0))
+       ) AS lineitem_discount_percentage
+   FROM raw_orders
+   WHERE financial_status IS NOT NULL
+),
+
+
+----------------------------------------------------------------------------------
+-- STEP 2: GLUE HEADERS TO LINES & POPULATE MISSING DISCOUNTS
+----------------------------------------------------------------------------------
+base_lines AS (
+   SELECT
+       lines.order_number,
+       lines.created_at,
+       lines.lineitem_quantity,
+       lines.product_name,
+       lines.lineitem_price,
+       lines.lineitem_compare_at_price,
+       lines.lineitem_sku,
+       lines.lineitem_requires_shipping,
+       lines.lineitem_taxable,
+       lines.lineitem_fulfillment_status,
+       lines.vendor,
+       lines.execution_cost_gbp,
+
+
+       -- Finds the exact discount you provided in the CSV
+       CASE
+           WHEN COALESCE(headers.discount_amount, 0) > 0 AND COALESCE(lines.lineitem_discount, 0) = 0 THEN
+               (lines.lineitem_price * headers.lineitem_discount_percentage) * lines.lineitem_quantity
+           ELSE COALESCE(lines.lineitem_discount, 0)
+       END AS lineitem_discount,
+      
+       headers.* EXCEPT (
+           order_number,
+           created_at,
+           lineitem_quantity,
+           product_name,
+           lineitem_price,
+           lineitem_compare_at_price,
+           lineitem_sku,
+           lineitem_requires_shipping,
+           lineitem_taxable,
+           lineitem_fulfillment_status,
+           vendor,
+           lineitem_discount,
+           execution_cost_gbp
+       )
+   FROM raw_orders AS lines
+   LEFT JOIN order_headers AS headers
+   ON lines.order_number = headers.order_number
+),
+
+
+----------------------------------------------------------------------------------
+-- STEP 3: CORE SALES METRICS (Gross, Net, and Selling Price)
+----------------------------------------------------------------------------------
+sales_calculations AS (
+   SELECT
+       *,
+       -- Gross Sales (Original Price * Qty)
+       (lineitem_price * lineitem_quantity) AS lineitem_gross_sales_before_discount,
+
+
+       -- Net Sales: THE FIX (Gross Sales minus the explicit Lineitem Discount)
+       ((lineitem_price * lineitem_quantity) - COALESCE(lineitem_discount, 0)) AS lineitem_netsales_afterdiscount_before_returns,
+
+
+       -- Actual Selling Price Per Unit
+       SAFE_DIVIDE(((lineitem_price * lineitem_quantity) - COALESCE(lineitem_discount, 0)), lineitem_quantity) AS lineitem_selling_price
+   FROM base_lines
+),
+
+
+----------------------------------------------------------------------------------
+-- STEP 4: FIRST WAVE ALLOCATIONS (Shipping & Tax)
+----------------------------------------------------------------------------------
+cost_allocations AS (
+   SELECT
+       *,
+       (SAFE_DIVIDE(total, subtotal) - 1) * lineitem_netsales_afterdiscount_before_returns AS lineitem_shipping,
+       SAFE_DIVIDE(COALESCE(taxes, 0), subtotal) * lineitem_netsales_afterdiscount_before_returns AS lineitem_tax
+   FROM sales_calculations
+)
+
+
+----------------------------------------------------------------------------------
+-- STEP 5: FINAL WAVE ALLOCATIONS (Refunds)
+----------------------------------------------------------------------------------
+SELECT
+   *,
+   SAFE_DIVIDE(COALESCE(refunded_amount, 0), total) * (lineitem_netsales_afterdiscount_before_returns + COALESCE(lineitem_shipping, 0)) AS lineitem_refund
+FROM cost_allocations
+
+
+
+
+Int_skus_sales_rolling
+
+WITH order_lines AS (
+   SELECT * FROM {{ ref('fct_order_lines') }}
+),
+
+
+time_anchor AS (
+   SELECT
+       EXTRACT(ISOYEAR FROM DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)) AS anchor_year,
+       EXTRACT(ISOWEEK FROM DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)) AS anchor_week
+),
+
+
+orders_with_iso AS (
+   SELECT
+       o.*,
+       EXTRACT(ISOYEAR FROM SAFE_CAST(o.created_at AS TIMESTAMP)) AS tx_iso_year,
+       EXTRACT(ISOWEEK FROM SAFE_CAST(o.created_at AS TIMESTAMP)) AS tx_iso_week
+   FROM order_lines o
+),
+
+
+sku_aggregations AS (
+   SELECT
+       o.lineitem_sku,
+      
+       -------------------------------------------------------------------------
+       -- 1. LIFETIME METRICS (No Timeframe)
+       -------------------------------------------------------------------------
+       SUM(o.sales_units) AS lifetime_sales_units,
+       SUM(o.gross_sales_if_at_rrp_gbp) AS lifetime_gross_sales_if_at_rrp_gbp,
+       SUM(o.gross_sales_before_discount_gbp) AS lifetime_gross_sales_before_discount_gbp,
+       SUM(o.full_price_gross_sales_gbp) AS lifetime_full_price_gross_sales_gbp,
+       SUM(o.net_sales_gbp) AS lifetime_net_sales_gbp,
+       SUM(o.refund_amount_gbp) AS lifetime_refund_amount_gbp,
+       SUM(o.sales_at_cost_gbp) AS lifetime_sales_at_cost_gbp,
+       SUM(o.checkout_discount_gbp) AS lifetime_checkout_discount_gbp,
+       SUM(o.apportioned_tax_gbp) AS lifetime_apportioned_tax_gbp,
+       SUM(o.apportioned_shipping_gbp) AS lifetime_apportioned_shipping_gbp,
+      
+       -- NEW: Adding the Sample Sale Execution Cost
+       SUM(COALESCE(o.execution_cost_gbp, 0)) AS lifetime_execution_cost_gbp,
+       -------------------------------------------------------------------------
+       -- 2. PREVIOUS WEEK (PW)
+       -------------------------------------------------------------------------
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = a.anchor_week THEN o.sales_units ELSE 0 END) AS pw_sales_units,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = a.anchor_week THEN o.gross_sales_if_at_rrp_gbp ELSE 0 END) AS pw_gross_sales_if_at_rrp_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = a.anchor_week THEN o.gross_sales_before_discount_gbp ELSE 0 END) AS pw_gross_sales_before_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = a.anchor_week THEN o.full_price_gross_sales_gbp ELSE 0 END) AS pw_full_price_gross_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = a.anchor_week THEN o.net_sales_gbp ELSE 0 END) AS pw_net_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = a.anchor_week THEN o.refund_amount_gbp ELSE 0 END) AS pw_refund_amount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = a.anchor_week THEN o.sales_at_cost_gbp ELSE 0 END) AS pw_sales_at_cost_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = a.anchor_week THEN o.checkout_discount_gbp ELSE 0 END) AS pw_checkout_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = a.anchor_week THEN o.apportioned_tax_gbp ELSE 0 END) AS pw_apportioned_tax_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = a.anchor_week THEN o.apportioned_shipping_gbp ELSE 0 END) AS pw_apportioned_shipping_gbp,
+
+
+       -------------------------------------------------------------------------
+       -- 3. PREVIOUS WEEK -1 (PW-1)
+       -------------------------------------------------------------------------
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = (a.anchor_week - 1) THEN o.sales_units ELSE 0 END) AS pw_minus_1_sales_units,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = (a.anchor_week - 1) THEN o.gross_sales_if_at_rrp_gbp ELSE 0 END) AS pw_minus_1_gross_sales_if_at_rrp_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = (a.anchor_week - 1) THEN o.gross_sales_before_discount_gbp ELSE 0 END) AS pw_minus_1_gross_sales_before_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = (a.anchor_week - 1) THEN o.full_price_gross_sales_gbp ELSE 0 END) AS pw_minus_1_full_price_gross_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = (a.anchor_week - 1) THEN o.net_sales_gbp ELSE 0 END) AS pw_minus_1_net_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = (a.anchor_week - 1) THEN o.refund_amount_gbp ELSE 0 END) AS pw_minus_1_refund_amount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = (a.anchor_week - 1) THEN o.sales_at_cost_gbp ELSE 0 END) AS pw_minus_1_sales_at_cost_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = (a.anchor_week - 1) THEN o.checkout_discount_gbp ELSE 0 END) AS pw_minus_1_checkout_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = (a.anchor_week - 1) THEN o.apportioned_tax_gbp ELSE 0 END) AS pw_minus_1_apportioned_tax_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week = (a.anchor_week - 1) THEN o.apportioned_shipping_gbp ELSE 0 END) AS pw_minus_1_apportioned_shipping_gbp,
+
+
+       -------------------------------------------------------------------------
+       -- 4. PREVIOUS WEEK LY (PWLY)
+       -------------------------------------------------------------------------
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week = a.anchor_week THEN o.sales_units ELSE 0 END) AS pwly_sales_units,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week = a.anchor_week THEN o.gross_sales_if_at_rrp_gbp ELSE 0 END) AS pwly_gross_sales_if_at_rrp_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week = a.anchor_week THEN o.gross_sales_before_discount_gbp ELSE 0 END) AS pwly_gross_sales_before_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week = a.anchor_week THEN o.full_price_gross_sales_gbp ELSE 0 END) AS pwly_full_price_gross_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week = a.anchor_week THEN o.net_sales_gbp ELSE 0 END) AS pwly_net_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week = a.anchor_week THEN o.refund_amount_gbp ELSE 0 END) AS pwly_refund_amount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week = a.anchor_week THEN o.sales_at_cost_gbp ELSE 0 END) AS pwly_sales_at_cost_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week = a.anchor_week THEN o.checkout_discount_gbp ELSE 0 END) AS pwly_checkout_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week = a.anchor_week THEN o.apportioned_tax_gbp ELSE 0 END) AS pwly_apportioned_tax_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week = a.anchor_week THEN o.apportioned_shipping_gbp ELSE 0 END) AS pwly_apportioned_shipping_gbp,
+
+
+       -------------------------------------------------------------------------
+       -- 5. PREVIOUS 4 WEEKS (P-4W)
+       -------------------------------------------------------------------------
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.sales_units ELSE 0 END) AS p_4w_sales_units,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.gross_sales_if_at_rrp_gbp ELSE 0 END) AS p_4w_gross_sales_if_at_rrp_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.gross_sales_before_discount_gbp ELSE 0 END) AS p_4w_gross_sales_before_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.full_price_gross_sales_gbp ELSE 0 END) AS p_4w_full_price_gross_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.net_sales_gbp ELSE 0 END) AS p_4w_net_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.refund_amount_gbp ELSE 0 END) AS p_4w_refund_amount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.sales_at_cost_gbp ELSE 0 END) AS p_4w_sales_at_cost_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.checkout_discount_gbp ELSE 0 END) AS p_4w_checkout_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.apportioned_tax_gbp ELSE 0 END) AS p_4w_apportioned_tax_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.apportioned_shipping_gbp ELSE 0 END) AS p_4w_apportioned_shipping_gbp,
+
+
+       -------------------------------------------------------------------------
+       -- 6. PREVIOUS 4 WEEKS LY (P-4W LY)
+       -------------------------------------------------------------------------
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.sales_units ELSE 0 END) AS p_4w_ly_sales_units,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.gross_sales_if_at_rrp_gbp ELSE 0 END) AS p_4w_ly_gross_sales_if_at_rrp_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.gross_sales_before_discount_gbp ELSE 0 END) AS p_4w_ly_gross_sales_before_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.full_price_gross_sales_gbp ELSE 0 END) AS p_4w_ly_full_price_gross_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.net_sales_gbp ELSE 0 END) AS p_4w_ly_net_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.refund_amount_gbp ELSE 0 END) AS p_4w_ly_refund_amount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.sales_at_cost_gbp ELSE 0 END) AS p_4w_ly_sales_at_cost_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.checkout_discount_gbp ELSE 0 END) AS p_4w_ly_checkout_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.apportioned_tax_gbp ELSE 0 END) AS p_4w_ly_apportioned_tax_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week BETWEEN (a.anchor_week - 3) AND a.anchor_week THEN o.apportioned_shipping_gbp ELSE 0 END) AS p_4w_ly_apportioned_shipping_gbp,
+
+
+       -------------------------------------------------------------------------
+       -- 7. PREVIOUS WEEKS -5-8 (P-5-8W)
+       -------------------------------------------------------------------------
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 7) AND (a.anchor_week - 4) THEN o.sales_units ELSE 0 END) AS p_5_8w_sales_units,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 7) AND (a.anchor_week - 4) THEN o.gross_sales_if_at_rrp_gbp ELSE 0 END) AS p_5_8w_gross_sales_if_at_rrp_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 7) AND (a.anchor_week - 4) THEN o.gross_sales_before_discount_gbp ELSE 0 END) AS p_5_8w_gross_sales_before_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 7) AND (a.anchor_week - 4) THEN o.full_price_gross_sales_gbp ELSE 0 END) AS p_5_8w_full_price_gross_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 7) AND (a.anchor_week - 4) THEN o.net_sales_gbp ELSE 0 END) AS p_5_8w_net_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 7) AND (a.anchor_week - 4) THEN o.refund_amount_gbp ELSE 0 END) AS p_5_8w_refund_amount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 7) AND (a.anchor_week - 4) THEN o.sales_at_cost_gbp ELSE 0 END) AS p_5_8w_sales_at_cost_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 7) AND (a.anchor_week - 4) THEN o.checkout_discount_gbp ELSE 0 END) AS p_5_8w_checkout_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 7) AND (a.anchor_week - 4) THEN o.apportioned_tax_gbp ELSE 0 END) AS p_5_8w_apportioned_tax_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week BETWEEN (a.anchor_week - 7) AND (a.anchor_week - 4) THEN o.apportioned_shipping_gbp ELSE 0 END) AS p_5_8w_apportioned_shipping_gbp,
+
+
+       -------------------------------------------------------------------------
+       -- 8. YTD TY
+       -------------------------------------------------------------------------
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week <= a.anchor_week THEN o.sales_units ELSE 0 END) AS ytd_sales_units,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week <= a.anchor_week THEN o.gross_sales_if_at_rrp_gbp ELSE 0 END) AS ytd_gross_sales_if_at_rrp_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week <= a.anchor_week THEN o.gross_sales_before_discount_gbp ELSE 0 END) AS ytd_gross_sales_before_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week <= a.anchor_week THEN o.full_price_gross_sales_gbp ELSE 0 END) AS ytd_full_price_gross_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week <= a.anchor_week THEN o.net_sales_gbp ELSE 0 END) AS ytd_net_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week <= a.anchor_week THEN o.refund_amount_gbp ELSE 0 END) AS ytd_refund_amount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week <= a.anchor_week THEN o.sales_at_cost_gbp ELSE 0 END) AS ytd_sales_at_cost_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week <= a.anchor_week THEN o.checkout_discount_gbp ELSE 0 END) AS ytd_checkout_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week <= a.anchor_week THEN o.apportioned_tax_gbp ELSE 0 END) AS ytd_apportioned_tax_gbp,
+       SUM(CASE WHEN o.tx_iso_year = a.anchor_year AND o.tx_iso_week <= a.anchor_week THEN o.apportioned_shipping_gbp ELSE 0 END) AS ytd_apportioned_shipping_gbp,
+
+
+       -------------------------------------------------------------------------
+       -- 9. YTD LY
+       -------------------------------------------------------------------------
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week <= a.anchor_week THEN o.sales_units ELSE 0 END) AS ytdly_sales_units,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week <= a.anchor_week THEN o.gross_sales_if_at_rrp_gbp ELSE 0 END) AS ytdly_gross_sales_if_at_rrp_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week <= a.anchor_week THEN o.gross_sales_before_discount_gbp ELSE 0 END) AS ytdly_gross_sales_before_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week <= a.anchor_week THEN o.full_price_gross_sales_gbp ELSE 0 END) AS ytdly_full_price_gross_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week <= a.anchor_week THEN o.net_sales_gbp ELSE 0 END) AS ytdly_net_sales_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week <= a.anchor_week THEN o.refund_amount_gbp ELSE 0 END) AS ytdly_refund_amount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week <= a.anchor_week THEN o.sales_at_cost_gbp ELSE 0 END) AS ytdly_sales_at_cost_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week <= a.anchor_week THEN o.checkout_discount_gbp ELSE 0 END) AS ytdly_checkout_discount_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week <= a.anchor_week THEN o.apportioned_tax_gbp ELSE 0 END) AS ytdly_apportioned_tax_gbp,
+       SUM(CASE WHEN o.tx_iso_year = (a.anchor_year - 1) AND o.tx_iso_week <= a.anchor_week THEN o.apportioned_shipping_gbp ELSE 0 END) AS ytdly_apportioned_shipping_gbp
+
+
+   FROM orders_with_iso o
+   CROSS JOIN time_anchor a
+   GROUP BY
+       o.lineitem_sku
+)
+
+
+SELECT * FROM sku_aggregations
+
+
+
+
+
+Int_sample_sales_enriched
+
+
+
+
+WITH raw_sample AS (
+   -- Targeting your newly uploaded table
+   SELECT * FROM {{ source('raw_shopify', 'raw_samplesale_table') }}
+),
+
+
+products AS (
+   -- Bringing in the master product list for enrichment
+   SELECT * FROM {{ ref('dim_products') }}
+)
+
+
+SELECT
+   -- 1. Core Identifiers (Mimicking Shopify)
+   s.`Name` AS order_id,
+   SAFE_CAST(s.`Created at` AS TIMESTAMP) AS created_at,
+   'Sample Sale' AS source_platform,
+   'paid' AS financial_status,
+   s.`Lineitem sku` AS lineitem_sku,
+   SAFE_CAST(s.`Lineitem quantity` AS INT64) AS quantity,
+  
+   -- 2. Core Financials
+   SAFE_CAST(s.`Total` AS FLOAT64) AS gross_sales_gbp,
+   SAFE_CAST(s.`Subtotal` AS FLOAT64) AS net_sales_gbp,
+   SAFE_CAST(s.`Taxes` AS FLOAT64) AS tax_gbp,
+   s.`Discount Code` AS discount_code,
+
+
+   -- 3. ENRICHMENT: The Price Safety Net
+   -- If 'Lineitem price' is NULL in the sheet, grab 'gbp_rrp' from the product table
+   COALESCE(SAFE_CAST(s.`Lineitem price` AS FLOAT64), p.gbp_rrp) AS lineitem_price,
+  
+   -- 4. ENRICHMENT: The True Discount KPI
+   -- Formula: (Price * Quantity) - Revenue Made
+   (COALESCE(SAFE_CAST(s.`Lineitem price` AS FLOAT64), p.gbp_rrp) * SAFE_CAST(s.`Lineitem quantity` AS INT64))
+       - SAFE_CAST(s.`Subtotal` AS FLOAT64) AS lineitem_discount,
+
+
+   -- 5. The Liquidation OPEX
+   -- Pulling from your custom column in the raw data with exact CSV spelling
+   SAFE_CAST(s.`Lineitem Additional Sample Sale Execution Costs` AS FLOAT64) AS execution_cost_gbp
+
+
+FROM raw_sample s
+LEFT JOIN products p
+   ON s.`Lineitem sku` = p.vv_sku
+
+
+
+Marts
+
+Dim_products
+
+WITH shopify_products AS (
+   SELECT * FROM {{ ref('stg_products') }}
+),
+
+
+range_sheet AS (
+   SELECT * FROM {{ ref('stg_raw_range_sheet') }}
+)
+
+
+SELECT
+   -- This single line pulls every column from your master range sheet
+   r.*,
+  
+   -- And this adds just the live price from your Shopify products table
+   p.variant_live_price
+
+
+FROM range_sheet r
+LEFT JOIN shopify_products p
+   ON r.vv_sku = p.variant_sku
+
+
+
+
+
+Fct_inventory
+
+WITH inventory AS (
+   SELECT * FROM {{ ref('stg_inventory') }}
+),
+
+
+products AS (
+   SELECT * FROM {{ ref('dim_products') }}
+)
+
+
+SELECT
+   -- Pulls every column from your staging inventory table (stock levels, locations, etc.)
+   i.*,
+  
+   -- Pulls every column from dim_products, excluding duplicates like SKU and product name
+   p.*
+
+
+FROM inventory i
+LEFT JOIN products p
+   ON i.sku = p.vv_sku
+
+
+
+
+
+
+Fct_order_lines
+
+WITH orders AS (
+   SELECT * FROM {{ ref('int_orders_filled') }}
+),
+
+
+products AS (
+   SELECT * EXCEPT (product_name)
+   FROM {{ ref('dim_products') }}
+),
+
+
+dates AS (
+   SELECT * FROM {{ ref('stg_dim_date') }}
+)
+
+
+SELECT
+   -- 1. All clean order data (Now containing Shopify AND Sample Sales natively)
+   o.*,
+  
+   -- 2. All product data
+   p.*,
+
+
+   -- 3. Date dimension attributes
+   d.*,
+  
+   ---KPIS---
+   -----------------------------------------------------------------------------------------------------
+   -- Gross Sales if sold at RRP (Baseline revenue if sold at RRP. Returns taken out).
+   -----------------------------------------------------------------------------------------------------
+   CASE
+       WHEN o.financial_status = 'paid'
+       THEN (SAFE_CAST(p.gbp_rrp AS FLOAT64) * o.lineitem_quantity)
+       ELSE 0
+   END AS gross_sales_if_at_rrp_gbp,
+
+
+   ----------------------------------------------------------------------------------------------
+   -- True Gross Sales Before Discount (Now accounts for True RRP and Markdowns)
+   ----------------------------------------------------------------------------------------------
+   CASE
+       WHEN o.financial_status = 'paid'
+       THEN o.lineitem_gross_sales_before_discount
+       ELSE 0
+   END AS gross_sales_before_discount_gbp,
+
+
+   ----------------------------------------------------------------------------------------------
+   -- Net Sales (Revenue after checkout discounts, after returns)
+   ----------------------------------------------------------------------------------------------
+   CASE
+       WHEN o.financial_status = 'paid'
+       THEN o.lineitem_netsales_afterdiscount_before_returns
+       ELSE 0
+   END AS net_sales_gbp,
+
+
+   ----------------------------------------------------------------------------------
+   -- Total Discount (Physical Markdowns + Cart Promo Codes)
+   ----------------------------------------------------------------------------------
+   CASE
+       WHEN o.financial_status = 'paid'
+       THEN COALESCE(o.lineitem_discount, 0)
+       ELSE 0
+   END AS checkout_discount_gbp,
+  
+   ----------------------------------------------------------------------------------
+   -- RRP Markdown (Total monetary difference between RRP and final paid price)
+   ----------------------------------------------------------------------------------
+   CASE
+       WHEN o.financial_status = 'paid' THEN
+           (
+               (SAFE_CAST(p.gbp_rrp AS FLOAT64) * o.lineitem_quantity)
+               - o.lineitem_netsales_afterdiscount_before_returns
+           )
+       ELSE 0
+   END AS rrp_markdown_gbp,
+
+
+   ----------------------------------------------------------------------------------
+   -- Sales Units
+   ----------------------------------------------------------------------------------
+   CASE
+       WHEN o.financial_status = 'paid'
+       THEN o.lineitem_quantity
+       ELSE 0
+   END AS sales_units,
+
+
+   ----------------------------------------------------------------------------------
+   -- Return Flag
+   ----------------------------------------------------------------------------------
+   CASE
+       WHEN o.financial_status = 'refunded' THEN 1
+       WHEN o.financial_status = 'partially_refunded' AND o.lineitem_fulfillment_status != 'fulfilled' THEN 1
+       ELSE 0
+   END AS is_returned,
+
+
+   ----------------------------------------------------------------------------------
+   -- Returned Quantity
+   ----------------------------------------------------------------------------------
+   CASE
+       WHEN o.financial_status = 'refunded' THEN o.lineitem_quantity
+       WHEN o.financial_status = 'partially_refunded' AND o.lineitem_fulfillment_status != 'fulfilled' THEN o.lineitem_quantity
+       ELSE 0
+   END AS return_quantity,
+
+
+   ----------------------------------------------------------------------------------
+   -- Returned Amount / Value
+   ----------------------------------------------------------------------------------
+   COALESCE(o.lineitem_refund, 0) AS refund_amount_gbp,
+
+
+   ----------------------------------------------------------------------------------
+   -- Sales @ Cost (COGS)
+   ----------------------------------------------------------------------------------
+   CASE
+       WHEN o.financial_status = 'paid' THEN (SAFE_CAST(p.unit_cost_gbp AS FLOAT64) * o.lineitem_quantity)
+       WHEN o.financial_status = 'partially_refunded' AND o.lineitem_fulfillment_status = 'fulfilled' THEN (SAFE_CAST(p.unit_cost_gbp AS FLOAT64) * o.lineitem_quantity)
+       ELSE 0
+   END AS sales_at_cost_gbp,
+
+
+   ----------------------------------------------------------------------------------
+   -- Sales Type Flag (Full Price vs Discount)
+   ----------------------------------------------------------------------------------
+   CASE
+       WHEN COALESCE(o.lineitem_discount, 0) > 0 THEN 'Discount'
+       ELSE 'Full Price'
+   END AS sales_type,
+
+
+   ----------------------------------------------------------------------------------
+   -- Full-Price Gross Sales
+   ----------------------------------------------------------------------------------
+   CASE
+       WHEN COALESCE(o.lineitem_discount, 0) = 0 AND o.financial_status = 'paid'
+       THEN o.lineitem_gross_sales_before_discount
+       ELSE 0
+   END AS full_price_gross_sales_gbp,
+
+
+   ----------------------------------------------------------------------------------
+   -- Gross Profit
+   ----------------------------------------------------------------------------------
+   CASE
+       WHEN o.financial_status = 'paid' THEN
+           (
+               o.lineitem_netsales_afterdiscount_before_returns
+               - (SAFE_CAST(p.unit_cost_gbp AS FLOAT64) * o.lineitem_quantity)
+           )
+       ELSE 0
+   END AS gross_profit_gbp,
+  
+   ----------------------------------------------------------------------------------
+   -- Discounted Gross Sales
+   ----------------------------------------------------------------------------------
+   CASE
+       WHEN COALESCE(o.lineitem_discount, 0) > 0 AND o.financial_status = 'paid'
+       THEN o.lineitem_gross_sales_before_discount
+       ELSE 0
+   END AS discounted_gross_sales_gbp,
+
+
+   ----------------------------------------------------------------------------------
+   -- BI Pass-Through Columns
+   ----------------------------------------------------------------------------------
+   COALESCE(o.lineitem_shipping, 0) AS apportioned_shipping_gbp,
+   COALESCE(o.lineitem_tax, 0) AS apportioned_tax_gbp,
+   EXTRACT(HOUR FROM SAFE_CAST(o.created_at AS TIMESTAMP)) AS transaction_hour
+
+
+FROM orders o
+LEFT JOIN products p
+   ON o.lineitem_sku = p.vv_sku
+LEFT JOIN dates d
+   ON DATE(SAFE_CAST(o.created_at AS TIMESTAMP)) = d.date
+
+
+
+
+Mart_sku_performance
+
+WITH products AS (
+   SELECT * FROM {{ ref('dim_products') }}
+),
+
+
+inventory AS (
+   SELECT
+       sku,
+       SUM(on_hand_current) AS current_stock
+   FROM {{ ref('fct_inventory') }}
+   GROUP BY sku
+),
+
+
+sales AS (
+   SELECT * FROM {{ ref('int_sku_sales_rolling') }}
+)
+
+
+SELECT
+   -- 1. ALL Product Attributes & Aliased Buy Data
+   p.* EXCEPT (qty_on_order, qty_received, variant_live_price),
+   SAFE_CAST(p.qty_on_order AS INT64) AS ordered_units,
+   SAFE_CAST(p.qty_received AS INT64) AS received_units,
+   SAFE_CAST(p.variant_live_price AS FLOAT64) AS current_price,
+
+
+   -- 2. Live Inventory
+   COALESCE(i.current_stock, 0) AS stock_on_hand,
+
+
+   -------------------------------------------------------------------------
+   -- 3. EXTENDED INVENTORY & ORDER VALUES (Row-Level Math)
+   -------------------------------------------------------------------------
+   -- Ordered Values
+   (SAFE_CAST(p.qty_on_order AS INT64) * SAFE_CAST(p.unit_cost_gbp AS FLOAT64)) AS ordered_value_at_cost_gbp,
+   (SAFE_CAST(p.qty_on_order AS INT64) * SAFE_CAST(p.gbp_rrp AS FLOAT64)) AS ordered_value_at_rrp_gbp,
+
+
+   -- Stock on Hand Values
+   (COALESCE(i.current_stock, 0) * SAFE_CAST(p.unit_cost_gbp AS FLOAT64)) AS stock_value_at_cost_gbp,
+   (COALESCE(i.current_stock, 0) * SAFE_CAST(p.variant_live_price AS FLOAT64)) AS stock_value_at_live_price_gbp,
+   (COALESCE(i.current_stock, 0) * SAFE_CAST(p.gbp_rrp AS FLOAT64)) AS stock_value_at_rrp_gbp,
+
+
+   -------------------------------------------------------------------------
+   -- 4. LIFETIME METRICS (No Timeframe)
+   -------------------------------------------------------------------------
+   COALESCE(s.lifetime_sales_units, 0) AS lifetime_sales_units,
+   COALESCE(s.lifetime_gross_sales_if_at_rrp_gbp, 0) AS lifetime_gross_sales_if_at_rrp_gbp,
+   COALESCE(s.lifetime_gross_sales_before_discount_gbp, 0) AS lifetime_gross_sales_before_discount_gbp,
+   COALESCE(s.lifetime_full_price_gross_sales_gbp, 0) AS lifetime_full_price_gross_sales_gbp,
+   COALESCE(s.lifetime_net_sales_gbp, 0) AS lifetime_net_sales_gbp,
+   COALESCE(s.lifetime_refund_amount_gbp, 0) AS lifetime_refund_amount_gbp,
+   COALESCE(s.lifetime_sales_at_cost_gbp, 0) AS lifetime_sales_at_cost_gbp,
+   COALESCE(s.lifetime_checkout_discount_gbp, 0) AS lifetime_checkout_discount_gbp,
+   COALESCE(s.lifetime_apportioned_tax_gbp, 0) AS lifetime_apportioned_tax_gbp,
+   COALESCE(s.lifetime_apportioned_shipping_gbp, 0) AS lifetime_apportioned_shipping_gbp,
+  
+   -- THE FIX: Just grab the column from the 's' table like the others
+   COALESCE(s.lifetime_execution_cost_gbp, 0) AS lifetime_execution_cost_gbp,
+
+
+   -- NEW: True Commercial Profitability (Net Revenue - COGS - Liquidation OPEX)
+   (
+       COALESCE(s.lifetime_net_sales_gbp, 0)
+       - COALESCE(s.lifetime_sales_at_cost_gbp, 0)
+       - COALESCE(s.lifetime_execution_cost_gbp, 0)
+   ) AS lifetime_true_gross_profit,
+
+
+   -------------------------------------------------------------------------
+   -- 5. PREVIOUS WEEK (PW)
+   -------------------------------------------------------------------------
+   COALESCE(s.pw_sales_units, 0) AS pw_sales_units,
+   COALESCE(s.pw_gross_sales_if_at_rrp_gbp, 0) AS pw_gross_sales_if_at_rrp_gbp,
+   COALESCE(s.pw_gross_sales_before_discount_gbp, 0) AS pw_gross_sales_before_discount_gbp,
+   COALESCE(s.pw_full_price_gross_sales_gbp, 0) AS pw_full_price_gross_sales_gbp,
+   COALESCE(s.pw_net_sales_gbp, 0) AS pw_net_sales_gbp,
+   COALESCE(s.pw_refund_amount_gbp, 0) AS pw_refund_amount_gbp,
+   COALESCE(s.pw_sales_at_cost_gbp, 0) AS pw_sales_at_cost_gbp,
+   COALESCE(s.pw_checkout_discount_gbp, 0) AS pw_checkout_discount_gbp,
+   COALESCE(s.pw_apportioned_tax_gbp, 0) AS pw_apportioned_tax_gbp,
+   COALESCE(s.pw_apportioned_shipping_gbp, 0) AS pw_apportioned_shipping_gbp,
+
+
+   -------------------------------------------------------------------------
+   -- 6. PREVIOUS WEEK -1 (PW-1)
+   -------------------------------------------------------------------------
+   COALESCE(s.pw_minus_1_sales_units, 0) AS pw_minus_1_sales_units,
+   COALESCE(s.pw_minus_1_gross_sales_if_at_rrp_gbp, 0) AS pw_minus_1_gross_sales_if_at_rrp_gbp,
+   COALESCE(s.pw_minus_1_gross_sales_before_discount_gbp, 0) AS pw_minus_1_gross_sales_before_discount_gbp,
+   COALESCE(s.pw_minus_1_full_price_gross_sales_gbp, 0) AS pw_minus_1_full_price_gross_sales_gbp,
+   COALESCE(s.pw_minus_1_net_sales_gbp, 0) AS pw_minus_1_net_sales_gbp,
+   COALESCE(s.pw_minus_1_refund_amount_gbp, 0) AS pw_minus_1_refund_amount_gbp,
+   COALESCE(s.pw_minus_1_sales_at_cost_gbp, 0) AS pw_minus_1_sales_at_cost_gbp,
+   COALESCE(s.pw_minus_1_checkout_discount_gbp, 0) AS pw_minus_1_checkout_discount_gbp,
+   COALESCE(s.pw_minus_1_apportioned_tax_gbp, 0) AS pw_minus_1_apportioned_tax_gbp,
+   COALESCE(s.pw_minus_1_apportioned_shipping_gbp, 0) AS pw_minus_1_apportioned_shipping_gbp,
+
+
+   -------------------------------------------------------------------------
+   -- 7. PREVIOUS WEEK LY (PWLY)
+   -------------------------------------------------------------------------
+   COALESCE(s.pwly_sales_units, 0) AS pwly_sales_units,
+   COALESCE(s.pwly_gross_sales_if_at_rrp_gbp, 0) AS pwly_gross_sales_if_at_rrp_gbp,
+   COALESCE(s.pwly_gross_sales_before_discount_gbp, 0) AS pwly_gross_sales_before_discount_gbp,
+   COALESCE(s.pwly_full_price_gross_sales_gbp, 0) AS pwly_full_price_gross_sales_gbp,
+   COALESCE(s.pwly_net_sales_gbp, 0) AS pwly_net_sales_gbp,
+   COALESCE(s.pwly_refund_amount_gbp, 0) AS pwly_refund_amount_gbp,
+   COALESCE(s.pwly_sales_at_cost_gbp, 0) AS pwly_sales_at_cost_gbp,
+   COALESCE(s.pwly_checkout_discount_gbp, 0) AS pwly_checkout_discount_gbp,
+   COALESCE(s.pwly_apportioned_tax_gbp, 0) AS pwly_apportioned_tax_gbp,
+   COALESCE(s.pwly_apportioned_shipping_gbp, 0) AS pwly_apportioned_shipping_gbp,
+
+
+   -------------------------------------------------------------------------
+   -- 8. PREVIOUS 4 WEEKS (P-4W)
+   -------------------------------------------------------------------------
+   COALESCE(s.p_4w_sales_units, 0) AS p_4w_sales_units,
+   COALESCE(s.p_4w_gross_sales_if_at_rrp_gbp, 0) AS p_4w_gross_sales_if_at_rrp_gbp,
+   COALESCE(s.p_4w_gross_sales_before_discount_gbp, 0) AS p_4w_gross_sales_before_discount_gbp,
+   COALESCE(s.p_4w_full_price_gross_sales_gbp, 0) AS p_4w_full_price_gross_sales_gbp,
+   COALESCE(s.p_4w_net_sales_gbp, 0) AS p_4w_net_sales_gbp,
+   COALESCE(s.p_4w_refund_amount_gbp, 0) AS p_4w_refund_amount_gbp,
+   COALESCE(s.p_4w_sales_at_cost_gbp, 0) AS p_4w_sales_at_cost_gbp,
+   COALESCE(s.p_4w_checkout_discount_gbp, 0) AS p_4w_checkout_discount_gbp,
+   COALESCE(s.p_4w_apportioned_tax_gbp, 0) AS p_4w_apportioned_tax_gbp,
+   COALESCE(s.p_4w_apportioned_shipping_gbp, 0) AS p_4w_apportioned_shipping_gbp,
+
+
+   -------------------------------------------------------------------------
+   -- 9. PREVIOUS 4 WEEKS LY (P-4W LY)
+   -------------------------------------------------------------------------
+   COALESCE(s.p_4w_ly_sales_units, 0) AS p_4w_ly_sales_units,
+   COALESCE(s.p_4w_ly_gross_sales_if_at_rrp_gbp, 0) AS p_4w_ly_gross_sales_if_at_rrp_gbp,
+   COALESCE(s.p_4w_ly_gross_sales_before_discount_gbp, 0) AS p_4w_ly_gross_sales_before_discount_gbp,
+   COALESCE(s.p_4w_ly_full_price_gross_sales_gbp, 0) AS p_4w_ly_full_price_gross_sales_gbp,
+   COALESCE(s.p_4w_ly_net_sales_gbp, 0) AS p_4w_ly_net_sales_gbp,
+   COALESCE(s.p_4w_ly_refund_amount_gbp, 0) AS p_4w_ly_refund_amount_gbp,
+   COALESCE(s.p_4w_ly_sales_at_cost_gbp, 0) AS p_4w_ly_sales_at_cost_gbp,
+   COALESCE(s.p_4w_ly_checkout_discount_gbp, 0) AS p_4w_ly_checkout_discount_gbp,
+   COALESCE(s.p_4w_ly_apportioned_tax_gbp, 0) AS p_4w_ly_apportioned_tax_gbp,
+   COALESCE(s.p_4w_ly_apportioned_shipping_gbp, 0) AS p_4w_ly_apportioned_shipping_gbp,
+
+
+   -------------------------------------------------------------------------
+   -- 10. PREVIOUS WEEKS -5-8 (P-5-8W)
+   -------------------------------------------------------------------------
+   COALESCE(s.p_5_8w_sales_units, 0) AS p_5_8w_sales_units,
+   COALESCE(s.p_5_8w_gross_sales_if_at_rrp_gbp, 0) AS p_5_8w_gross_sales_if_at_rrp_gbp,
+   COALESCE(s.p_5_8w_gross_sales_before_discount_gbp, 0) AS p_5_8w_gross_sales_before_discount_gbp,
+   COALESCE(s.p_5_8w_full_price_gross_sales_gbp, 0) AS p_5_8w_full_price_gross_sales_gbp,
+   COALESCE(s.p_5_8w_net_sales_gbp, 0) AS p_5_8w_net_sales_gbp,
+   COALESCE(s.p_5_8w_refund_amount_gbp, 0) AS p_5_8w_refund_amount_gbp,
+   COALESCE(s.p_5_8w_sales_at_cost_gbp, 0) AS p_5_8w_sales_at_cost_gbp,
+   COALESCE(s.p_5_8w_checkout_discount_gbp, 0) AS p_5_8w_checkout_discount_gbp,
+   COALESCE(s.p_5_8w_apportioned_tax_gbp, 0) AS p_5_8w_apportioned_tax_gbp,
+   COALESCE(s.p_5_8w_apportioned_shipping_gbp, 0) AS p_5_8w_apportioned_shipping_gbp,
+
+
+   -------------------------------------------------------------------------
+   -- 11. YTD TY
+   -------------------------------------------------------------------------
+   COALESCE(s.ytd_sales_units, 0) AS ytd_sales_units,
+   COALESCE(s.ytd_gross_sales_if_at_rrp_gbp, 0) AS ytd_gross_sales_if_at_rrp_gbp,
+   COALESCE(s.ytd_gross_sales_before_discount_gbp, 0) AS ytd_gross_sales_before_discount_gbp,
+   COALESCE(s.ytd_full_price_gross_sales_gbp, 0) AS ytd_full_price_gross_sales_gbp,
+   COALESCE(s.ytd_net_sales_gbp, 0) AS ytd_net_sales_gbp,
+   COALESCE(s.ytd_refund_amount_gbp, 0) AS ytd_refund_amount_gbp,
+   COALESCE(s.ytd_sales_at_cost_gbp, 0) AS ytd_sales_at_cost_gbp,
+   COALESCE(s.ytd_checkout_discount_gbp, 0) AS ytd_checkout_discount_gbp,
+   COALESCE(s.ytd_apportioned_tax_gbp, 0) AS ytd_apportioned_tax_gbp,
+   COALESCE(s.ytd_apportioned_shipping_gbp, 0) AS ytd_apportioned_shipping_gbp,
+
+
+   -------------------------------------------------------------------------
+   -- 12. YTD LY
+   -------------------------------------------------------------------------
+   COALESCE(s.ytdly_sales_units, 0) AS ytdly_sales_units,
+   COALESCE(s.ytdly_gross_sales_if_at_rrp_gbp, 0) AS ytdly_gross_sales_if_at_rrp_gbp,
+   COALESCE(s.ytdly_gross_sales_before_discount_gbp, 0) AS ytdly_gross_sales_before_discount_gbp,
+   COALESCE(s.ytdly_full_price_gross_sales_gbp, 0) AS ytdly_full_price_gross_sales_gbp,
+   COALESCE(s.ytdly_net_sales_gbp, 0) AS ytdly_net_sales_gbp,
+   COALESCE(s.ytdly_refund_amount_gbp, 0) AS ytdly_refund_amount_gbp,
+   COALESCE(s.ytdly_sales_at_cost_gbp, 0) AS ytdly_sales_at_cost_gbp,
+   COALESCE(s.ytdly_checkout_discount_gbp, 0) AS ytdly_checkout_discount_gbp,
+   COALESCE(s.ytdly_apportioned_tax_gbp, 0) AS ytdly_apportioned_tax_gbp,
+   COALESCE(s.ytdly_apportioned_shipping_gbp, 0) AS ytdly_apportioned_shipping_gbp,
+
+
+   -------------------------------------------------------------------------
+   -- 13. INVENTORY & MERCHANDISING KPIS
+   -------------------------------------------------------------------------
+  
+   -- Stock Weeks Cover (Current Stock / Previous Week's Sales Velocity)
+   SAFE_DIVIDE(COALESCE(i.current_stock, 0), s.pw_sales_units) AS stock_weeks_cover,
+  
+   -- Sell-Through Rate (Lifetime Units Sold / (Lifetime Units Sold + Current Stock))
+   SAFE_DIVIDE(
+       COALESCE(s.lifetime_sales_units, 0),
+       (COALESCE(s.lifetime_sales_units, 0) + COALESCE(i.current_stock, 0))
+   ) AS sell_through_rate
+
+
+FROM products p
+LEFT JOIN inventory i
+   ON p.vv_sku = i.sku
+LEFT JOIN sales s
+   ON p.vv_sku = s.lineitem_sku
+
+
+Mart_inventory_enriched
+
+{{ config(materialized='table') }}
+
+
+WITH current_inventory AS (
+   -- The Fix: Now perfectly matches your sources.yml
+   SELECT * FROM {{ source('raw_shopify', 'raw_inventory_table') }}
+),
+
+
+-- ... [Keep the rest of your code exactly the same] ...
+
+
+sku_historical_performance AS (
+   -- 2. Compress the entire sales history into ONE row per SKU
+   SELECT
+       lineitem_sku,
+      
+       -- Volume KPIs
+       SUM(sales_units) AS lifetime_units_sold,
+       SUM(return_quantity) AS lifetime_units_returned,
+       SAFE_DIVIDE(SUM(return_quantity), (SUM(sales_units) + SUM(return_quantity))) AS lifetime_return_rate,
+
+
+       -- Financial KPIs
+       SUM(gross_sales_before_discount_gbp) AS lifetime_gross_sales,
+       SUM(checkout_discount_gbp) AS lifetime_discounts_given,
+       SUM(net_sales_gbp) AS lifetime_net_sales,
+       SUM(gross_profit_gbp) AS lifetime_gross_profit,
+      
+       -- Margin % (Gross Profit / Net Sales)
+       SAFE_DIVIDE(SUM(gross_profit_gbp), SUM(net_sales_gbp)) AS lifetime_gross_margin_pct,
+
+
+       -- Velocity KPIs (Just the last 28 days for ordering purposes)
+       SUM(CASE
+           WHEN DATE(SAFE_CAST(created_at AS TIMESTAMP)) >= DATE_SUB(CURRENT_DATE(), INTERVAL 28 DAY)
+           THEN sales_units
+           ELSE 0
+       END) AS units_sold_last_28_days,
+      
+       SUM(CASE
+           WHEN DATE(SAFE_CAST(created_at AS TIMESTAMP)) >= DATE_SUB(CURRENT_DATE(), INTERVAL 28 DAY)
+           THEN gross_profit_gbp
+           ELSE 0
+       END) AS gross_profit_last_28_days
+
+
+   FROM {{ ref('fct_order_lines') }}
+   WHERE financial_status = 'paid'
+   GROUP BY 1
+)
+
+
+-- 3. Glue them together
+SELECT
+   i.*,
+  
+   -- Inject the aggregated sales metrics, defaulting to 0 if the item has never sold
+   COALESCE(p.lifetime_units_sold, 0) AS lifetime_units_sold,
+   COALESCE(p.lifetime_return_rate, 0) AS lifetime_return_rate,
+   COALESCE(p.lifetime_net_sales, 0) AS lifetime_net_sales,
+   COALESCE(p.lifetime_gross_profit, 0) AS lifetime_gross_profit,
+   COALESCE(p.lifetime_gross_margin_pct, 0) AS lifetime_gross_margin_pct,
+   COALESCE(p.units_sold_last_28_days, 0) AS units_sold_last_28_days,
+   COALESCE(p.gross_profit_last_28_days, 0) AS gross_profit_last_28_days,
+
+
+   -- The Ultimate Merchandising KPI: Weeks of Cover
+   SAFE_DIVIDE(
+       -- FIX 1: Wrapped in backticks because of the spaces in the BigQuery column name
+       SAFE_CAST(i.`Available _not editable_` AS FLOAT64),
+       SAFE_DIVIDE(COALESCE(p.units_sold_last_28_days, 0), 4)
+   ) AS weeks_of_cover
+
+
+FROM current_inventory i
+LEFT JOIN sku_historical_performance p
+   -- FIX 2: Updated to the exact SKU column name from the schema
+   ON i.SKU = p.lineitem_sku
+
+
