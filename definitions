@@ -1,7 +1,6 @@
 Sources.yml
 version: 2
 
-
 sources:
  - name: raw_shopify
    description: "Raw operational and calendar tables in BigQuery."
