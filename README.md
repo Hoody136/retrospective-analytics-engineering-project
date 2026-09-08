@@ -1,7 +1,7 @@
 # retrospective-analytics-engineering-project
 
 # Headline
-In summer of 2026, I built end-to-end commercial reporting for a Luxury Fashion Retailer on Shopify (+1 physical London store). It reduced time-to-insights from days to minutes. This in turn drove a +15% uplift in weekly Revenue. 
+### In summer of 2026, I built end-to-end commercial reporting for a Luxury Fashion Retailer on Shopify (+1 physical London store). It reduced time-to-insights from days to minutes. This in turn drove a +15% uplift in weekly Revenue. 
 
 I also saved my client 100 euros per month in costs by opting for Google's Dataform over dbt (for data transformation & logic). 
 
